@@ -255,10 +255,10 @@ app.delete('/api/alumnos/:id', (req, res) => {
 app.get('*', (req, res) => {
     // Si la solicitud no es para un recurso de la API, sirve el archivo del frontend (App.jsx)
     // El frontend hará peticiones a /api/*
-    res.sendFile(path.join(__dirname, 'App.jsx'), { headers: { 'Content-Type': 'application/javascript' } }, (err) => {
+    res.sendFile(path.join(__dirname, 'index.html'), { headers: { 'Content-Type': 'text/html' } }, (err) => {
         if (err) {
-            console.error('Error al intentar servir App.jsx:', err);
-            res.status(404).send('No se pudo encontrar el frontend (App.jsx). Asegúrate de que existe en el directorio del servidor.');
+            console.error('Error al intentar servir index.html:', err);
+            res.status(404).send('No se pudo encontrar el frontend (index..html). Asegúrate de que existe en el directorio del servidor.');
         }
     });
 });
@@ -273,3 +273,4 @@ if (process.env.NODE_ENV !== 'test') {
 
 // Exportar la aplicación para el testing con supertest
 module.exports = app;
+
