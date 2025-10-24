@@ -1,276 +1,275 @@
-// -----------------------------------------------------------------------------
-// 2. Backend: Implementación de la API RESTful (Nivel 2) y Persistencia en Memoria
-// -----------------------------------------------------------------------------
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const PORT = 3000;
-const MAX_ALUMNOS = 6; // Capacidad máxima por clase
+const MAX_ALUMNOS = 6; // Constante del negocio
 
 app.use(cors());
 app.use(express.json());
 
-// 2.1. Persistencia en Memoria con Set de Datos Default
-// Los datos se cargan del archivo yoga.sql proporcionado.
+// --- Inicialización de Datos en Memoria (Simulando DB) ---
+// Datos basados en yoga.sql
+
 let alumnos = [
-    { id_alumno: '1', nombres: 'Leandro', apellidos: 'Pérez', dni: '11678443', email: 'leandro.perez@icloud.com', telefono: '54' },
-    { id_alumno: '2', nombres: 'Daiana', apellidos: 'Martínez', dni: '55412533', email: 'daiana.martinez@icloud.com', telefono: '54' },
-    { id_alumno: '3', nombres: 'María', 'apellidos': 'Díaz', dni: '24672546', email: 'maria.diaz@outlook.com', telefono: '54' },
-    // ... Se cargarían los 30 alumnos iniciales aquí
+    { id: '1', nombres: 'Leandro', apellidos: 'Pérez', dni: '11678443', email: 'leandro.perez@icloud.com', telefono: '54' },
+    { id: '2', nombres: 'Daiana', apellidos: 'Martínez', dni: '55412533', email: 'daiana.martinez@icloud.com', telefono: '54' },
+    { id: '3', nombres: 'María', apellidos: 'Díaz', dni: '24672546', email: 'maria.diaz@outlook.com', telefono: '54' },
+    // ... (El resto de los 30 alumnos iniciales se omiten aquí por brevedad, pero se simulan sus inscripciones abajo)
 ];
 
-let horario_clases = [
-    { id_clase: '2', dia: 'lunes', hora: '10:00:00', clase: 'HATHA YOGA' },
-    { id_clase: '3', dia: 'lunes', hora: '17:00:00', clase: 'HATHA YOGA' },
-    { id_clase: '4', dia: 'lunes', hora: '18:00:00', clase: 'ACROYOGA' },
-    { id_clase: '5', dia: 'lunes', hora: '19:00:00', clase: 'PILATES' },
-    { id_clase: '6', dia: 'lunes', hora: '20:00:00', clase: 'HATHA YOGA' },
-    { id_clase: '7', dia: 'martes', hora: '10:00:00', clase: 'PILATES EXTREME' },
-    { id_clase: '8', dia: 'martes', hora: '15:00:00', clase: 'ASHTANGA YOGA' },
-    { id_clase: '9', dia: 'martes', hora: '16:00:00', clase: 'ACROYOGA' },
-    { id_clase: '10', dia: 'martes', hora: '17:00:00', clase: 'PILATES' },
-    { id_clase: '11', dia: 'martes', hora: '18:00:00', clase: 'PILATES EXTREME' },
-    { id_clase: '12', dia: 'miércoles', hora: '10:00:00', clase: 'HATHA YOGA' },
-    { id_clase: '13', dia: 'miércoles', hora: '16:00:00', clase: 'PILATES' },
-    { id_clase: '14', dia: 'miércoles', hora: '18:00:00', clase: 'ASHTANGA YOGA' },
-    { id_clase: '15', dia: 'miércoles', hora: '19:00:00', clase: 'PILATES' },
-    { id_clase: '16', dia: 'miércoles', hora: '20:00:00', clase: 'HATHA YOGA' },
-    { id_clase: '17', dia: 'jueves', hora: '09:00:00', clase: 'ACROYOGA' },
-    { id_clase: '18', dia: 'jueves', hora: '10:00:00', clase: 'PILATES EXTREME' },
-    { id_clase: '19', dia: 'jueves', hora: '17:00:00', clase: 'HATHA YOGA' },
-    { id_clase: '20', dia: 'jueves', hora: '18:00:00', clase: 'PILATES EXTREME' },
-    { id_clase: '21', dia: 'viernes', hora: '09:00:00', clase: 'PILATES' },
-    { id_clase: '22', dia: 'viernes', hora: '15:00:00', clase: 'ASHTANGA YOGA' },
-    { id_clase: '23', dia: 'viernes', hora: '16:00:00', clase: 'PILATES' },
-    { id_clase: '24', dia: 'viernes', hora: '17:00:00', clase: 'PILATES' },
-    { id_clase: '25', dia: 'viernes', hora: '18:00:00', clase: 'ACROYOGA' },
-    { id_clase: '26', dia: 'viernes', hora: '19:00:00', clase: 'PILATES' },
-    { id_clase: '27', dia: 'viernes', hora: '20:00:00', clase: 'HATHA YOGA' },
-    { id_clase: '28', dia: 'sábado ', hora: '09:00:00', clase: 'YOGA+MEDITACIÓN' },
-    { id_clase: '29', dia: 'sábado ', hora: '10:00:00', clase: 'ACROYOGA' },
-    { id_clase: '30', dia: 'sábado ', hora: '11:00:00', clase: 'PILATES' },
+let clases = [
+    { id: '2', dia: 'lunes', hora: '10:00:00', clase: 'HATHA YOGA', cantAlumnos: 4 },
+    { id: '3', dia: 'lunes', hora: '17:00:00', clase: 'HATHA YOGA', cantAlumnos: 5 },
+    { id: '4', dia: 'lunes', hora: '18:00:00', clase: 'ACROYOGA', cantAlumnos: 2 },
+    { id: '5', dia: 'lunes', hora: '19:00:00', clase: 'PILATES', cantAlumnos: 1 },
+    { id: '6', dia: 'lunes', hora: '20:00:00', clase: 'HATHA YOGA', cantAlumnos: 0 },
+    { id: '7', dia: 'martes', hora: '10:00:00', clase: 'PILATES EXTREME', cantAlumnos: 0 },
+    { id: '8', dia: 'martes', hora: '15:00:00', clase: 'ASHTANGA YOGA', cantAlumnos: 2 },
+    { id: '9', dia: 'martes', hora: '16:00:00', clase: 'ACROYOGA', cantAlumnos: 0 },
+    { id: '10', dia: 'martes', hora: '17:00:00', clase: 'PILATES', cantAlumnos: 0 },
+    { id: '11', dia: 'martes', hora: '18:00:00', clase: 'PILATES EXTREME', cantAlumnos: 0 },
+    { id: '12', dia: 'miércoles', hora: '10:00:00', clase: 'HATHA YOGA', cantAlumnos: 0 },
+    { id: '13', dia: 'miércoles', hora: '16:00:00', clase: 'PILATES', cantAlumnos: 0 },
+    { id: '14', dia: 'miércoles', hora: '18:00:00', clase: 'ASHTANGA YOGA', cantAlumnos: 0 },
+    { id: '15', dia: 'miércoles', hora: '19:00:00', clase: 'PILATES', cantAlumnos: 0 },
+    { id: '16', dia: 'miércoles', hora: '20:00:00', clase: 'HATHA YOGA', cantAlumnos: 0 },
+    { id: '17', dia: 'jueves', hora: '09:00:00', clase: 'ACROYOGA', cantAlumnos: 0 },
+    { id: '18', dia: 'jueves', hora: '10:00:00', clase: 'PILATES EXTREME', cantAlumnos: 0 },
+    { id: '19', dia: 'jueves', hora: '17:00:00', clase: 'HATHA YOGA', cantAlumnos: 0 },
+    { id: '20', dia: 'jueves', hora: '18:00:00', clase: 'PILATES EXTREME', cantAlumnos: 0 },
+    { id: '21', dia: 'viernes', hora: '09:00:00', clase: 'PILATES', cantAlumnos: 0 },
+    { id: '22', dia: 'viernes', hora: '15:00:00', clase: 'ASHTANGA YOGA', cantAlumnos: 0 },
+    { id: '23', dia: 'viernes', hora: '16:00:00', clase: 'PILATES', cantAlumnos: 0 },
+    { id: '24', dia: 'viernes', hora: '17:00:00', clase: 'PILATES', cantAlumnos: 0 },
+    { id: '25', dia: 'viernes', hora: '18:00:00', clase: 'ACROYOGA', cantAlumnos: 0 },
+    { id: '26', dia: 'viernes', hora: '19:00:00', clase: 'PILATES', cantAlumnos: 0 },
+    { id: '27', dia: 'viernes', hora: '20:00:00', clase: 'HATHA YOGA', cantAlumnos: 0 },
+    { id: '28', dia: 'sábado ', hora: '09:00:00', clase: 'YOGA+MEDITACIÓN', cantAlumnos: 0 },
+    { id: '29', dia: 'sábado ', hora: '10:00:00', clase: 'ACROYOGA', cantAlumnos: 0 },
+    { id: '30', dia: 'sábado ', hora: '11:00:00', clase: 'PILATES', cantAlumnos: 0 }
 ];
-
-let alumnos_clases = [
-    // La data inicial está diseñada para simular cupos.
-    // Clase 2 (HATHA YOGA - lunes 10:00): 4 alumnos
-    { alumno_id: '1', clase_id: '2' },
-    { alumno_id: '2', clase_id: '2' },
-    { alumno_id: '3', clase_id: '2' },
-    { alumno_id: '4', clase_id: '2' },
-
-    // Clase 3 (HATHA YOGA - lunes 17:00): 5 alumnos (casi completa)
-    { alumno_id: '5', clase_id: '3' },
-    { alumno_id: '6', clase_id: '3' },
-    { alumno_id: '7', clase_id: '3' },
-    { alumno_id: '8', clase_id: '3' },
-    { alumno_id: '9', clase_id: '3' },
-
-    // Clase 4 (ACROYOGA - lunes 18:00): 6 alumnos (COMPLETA)
-    { alumno_id: '10', clase_id: '4' },
-    { alumno_id: '11', clase_id: '4' },
-    { alumno_id: '12', clase_id: '4' },
-    { alumno_id: '13', clase_id: '4' },
-    { alumno_id: '14', clase_id: '4' },
-    { alumno_id: '15', clase_id: '4' },
-
-    // Otras inscripciones
-    { alumno_id: '1', clase_id: '10' },
-    { alumno_id: '2', clase_id: '12' },
-];
-
-// -----------------------------------------------------------------------------
-// Funciones de Lógica de Negocio
-// -----------------------------------------------------------------------------
-
-/**
- * Calcula la cantidad de alumnos inscritos en una clase.
- * @param {string} claseId - ID de la clase.
- * @returns {number} - Cantidad de alumnos.
- */
-const contarAlumnosPorClase = (claseId) => {
-    return alumnos_clases.filter(ac => ac.clase_id === claseId).length;
+// Esta simulación es esencial: la tabla `alumnos_clases` define quién está en qué clase.
+// Usamos un objeto para un acceso rápido: { clase_id: [alumno_id, ...], ... }
+let alumnosClases = {
+    '2': ['2', '3', '4', '5'], // HATHA YOGA (Lunes 10:00), 4 alumnos
+    '3': ['6', '7', '8', '9', '10'], // HATHA YOGA (Lunes 17:00), 5 alumnos
+    '4': ['11', '12'], // ACROYOGA (Lunes 18:00), 2 alumnos
+    '5': ['13'], // PILATES (Lunes 19:00), 1 alumno
+    '8': ['14', '15'], // ASHTANGA YOGA (Martes 15:00), 2 alumnos
+    // Clases completas para pruebas:
+    '31': ['A', 'B', 'C', 'D', 'E', 'F'] // Clase ficticia completa para demostración
 };
 
-/**
- * Prepara el horario con la información de cupos.
- * @returns {Array} - Horario de clases enriquecido.
- */
-const getHorarioConCupos = () => {
-    return horario_clases.map(clase => {
-        const inscritos = contarAlumnosPorClase(clase.id_clase);
-        return {
-            ...clase,
-            cupoActual: inscritos,
-            cupoMaximo: MAX_ALUMNOS,
-            disponible: inscritos < MAX_ALUMNOS,
-            estado: inscritos >= MAX_ALUMNOS ? 'Clase Completa' : 'Disponible',
-        };
+// Se asegura que `alumnosClases` tenga la cuenta real para la lógica.
+function updateClasesCount() {
+    clases.forEach(clase => {
+        clase.cantAlumnos = alumnosClases[clase.id] ? alumnosClases[clase.id].length : 0;
+        clase.cupoCompleto = clase.cantAlumnos >= MAX_ALUMNOS;
     });
-};
+}
+updateClasesCount();
 
-// -----------------------------------------------------------------------------
-// 2.1. API RESTful - Endpoints
-// -----------------------------------------------------------------------------
+// --- Rutas de la API (Nivel 2 RESTful) ---
 
-/**
- * GET /api/horario
- * Obtiene la grilla de horarios con el estado de cupos.
- */
-app.get('/api/horario', (req, res) => {
-    // Retorna la grilla de clases enriquecida
-    const horario = getHorarioConCupos();
-    return res.status(200).json(horario);
+// 1. OBTENER HORARIO Y ESTADO DE CUPOS (Listar clases)
+app.get('/api/clases', (req, res) => {
+    updateClasesCount(); // Asegura que el conteo esté actualizado
+    res.json(clases.map(c => ({
+        id: c.id,
+        dia: c.dia,
+        hora: c.hora,
+        clase: c.clase,
+        cantAlumnos: c.cantAlumnos,
+        cupoCompleto: c.cupoCompleto,
+        cuposDisponibles: MAX_ALUMNOS - c.cantAlumnos
+    })));
 });
 
-/**
- * GET /api/alumnos
- * Obtiene el listado completo de alumnos (Reporte y CRUD).
- */
-app.get('/api/alumnos', (req, res) => {
-    return res.status(200).json(alumnos);
-});
-
-/**
- * GET /api/alumnos/:id/clases
- * Obtiene las clases en las que está inscrito un alumno (para el reporte).
- */
-app.get('/api/alumnos/:id/clases', (req, res) => {
-    const alumnoId = req.params.id;
-    const clasesInscritas = alumnos_clases
-        .filter(ac => ac.alumno_id === alumnoId)
-        .map(ac => horario_clases.find(hc => hc.id_clase === ac.clase_id));
-
-    if (!alumnos.find(a => a.id_alumno === alumnoId)) {
-        return res.status(404).json({ message: 'Alumno no encontrado.' });
+// 2. OBTENER DETALLE DE UNA CLASE (Incluye alumnos inscritos)
+app.get('/api/clases/:id', (req, res) => {
+    const id = req.params.id;
+    const clase = clases.find(c => c.id === id);
+    if (!clase) {
+        return res.status(404).json({ error: 'Clase no encontrada' });
     }
 
-    return res.status(200).json(clasesInscritas.filter(c => c)); // Filtra por si alguna clase fue borrada
+    const inscritosIds = alumnosClases[id] || [];
+    const inscritos = alumnos.filter(a => inscritosIds.includes(a.id));
+
+    res.json({
+        ...clase,
+        alumnosInscritos: inscritos
+    });
 });
 
 
-/**
- * POST /api/reservas
- * Proceso principal de reserva: registra alumno y sus inscripciones. (ABM: CREAR)
- * Body: { alumno: {nombres, apellidos, dni, email, telefono}, clases: [claseId1, claseId2, ...] }
- */
-app.post('/api/reservas', (req, res) => {
-    const { alumno: alumnoData, clases: clasesIds } = req.body;
+// 3. INSCRIPCIÓN / CREACIÓN DE ALUMNO (ABM/CRUD: Create - Principal)
+// Cuerpo: { nombres, apellidos, dni, email, telefono, clases_ids: ['id1', 'id2'] }
+app.post('/api/inscripcion', (req, res) => {
+    const { nombres, apellidos, dni, email, telefono, clases_ids } = req.body;
 
-    if (!alumnoData || !clasesIds || clasesIds.length === 0) {
-        return res.status(400).json({ message: 'Datos incompletos para la reserva.' });
+    if (!nombres || !apellidos || !dni || !email || !clases_ids || clases_ids.length === 0) {
+        return res.status(400).json({ error: 'Faltan campos obligatorios o clases seleccionadas.' });
     }
 
-    // 1. Verificar cupos para todas las clases solicitadas
-    const clasesCompletas = clasesIds.filter(claseId => {
-        return contarAlumnosPorClase(claseId) >= MAX_ALUMNOS;
-    });
+    updateClasesCount();
+
+    // 1. Validar cupos antes de inscribir al alumno
+    const clasesAInscribir = clases_ids.map(id => clases.find(c => c.id === id)).filter(Boolean);
+    const clasesCompletas = clasesAInscribir.filter(c => c.cupoCompleto);
 
     if (clasesCompletas.length > 0) {
-        // En este punto, el frontend ya hizo una verificación, pero se verifica de nuevo por seguridad
-        // El requisito pide un 'alert', pero en el backend enviamos la lista de clases completas.
-        const nombresClasesCompletas = clasesCompletas.map(id => {
-            const clase = horario_clases.find(c => c.id_clase === id);
-            return `${clase.dia} ${clase.hora} (${clase.clase})`;
-        });
-
-        return res.status(409).json({ // 409 Conflict
-            message: 'Alerta: Una o más clases seleccionadas están completas.',
+        const nombresClasesCompletas = clasesCompletas.map(c => `${c.clase} (${c.dia} ${c.hora})`).join(', ');
+        // Retorna 409 Conflict si hay clases completas (para el alert)
+        return res.status(409).json({
+            error: 'Una o más clases seleccionadas están completas.',
             clasesCompletas: nombresClasesCompletas
         });
     }
 
-    // 2. Guardar o encontrar alumno
-    let alumnoExistente = alumnos.find(a => a.dni === alumnoData.dni);
-    let alumnoId;
+    // 2. Guardar el registro del alumno (Si ya existe por DNI, usar el ID existente)
+    let alumnoExistente = alumnos.find(a => a.dni === dni);
+    let nuevoAlumnoId;
 
     if (alumnoExistente) {
-        // Actualizar datos del alumno existente (si aplica)
-        Object.assign(alumnoExistente, alumnoData);
-        alumnoId = alumnoExistente.id_alumno;
+        nuevoAlumnoId = alumnoExistente.id;
+        // Actualizar datos del alumno existente (si se requiere)
+        Object.assign(alumnoExistente, { nombres, apellidos, email, telefono });
     } else {
-        // Crear nuevo alumno (ABM: CREAR)
+        nuevoAlumnoId = uuidv4();
         const nuevoAlumno = {
-            id_alumno: uuidv4(), // Usar UUID para ID en memoria
-            ...alumnoData
+            id: nuevoAlumnoId,
+            nombres,
+            apellidos,
+            dni,
+            email,
+            telefono
         };
         alumnos.push(nuevoAlumno);
-        alumnoId = nuevoAlumno.id_alumno;
     }
 
-    // 3. Guardar registros en alumnos_clases (Inscripción)
-    const nuevasInscripciones = [];
-    clasesIds.forEach(claseId => {
-        // Evitar duplicados (un alumno no puede inscribirse dos veces a la misma clase)
-        const yaInscrito = alumnos_clases.some(ac => ac.alumno_id === alumnoId && ac.clase_id === claseId);
-        if (!yaInscrito) {
-            alumnos_clases.push({ alumno_id: alumnoId, clase_id: claseId });
-            nuevasInscripciones.push(claseId);
+    // 3. Guardar los nuevos registros en alumnos_clases
+    let clasesInscritasExitosas = [];
+    clasesAInscribir.forEach(clase => {
+        // Doble chequeo de cupo justo antes de la inscripción
+        if ((alumnosClases[clase.id] ? alumnosClases[clase.id].length : 0) < MAX_ALUMNOS) {
+            if (!alumnosClases[clase.id]) {
+                alumnosClases[clase.id] = [];
+            }
+            // Evitar duplicados (un alumno no puede inscribirse dos veces a la misma clase)
+            if (!alumnosClases[clase.id].includes(nuevoAlumnoId)) {
+                alumnosClases[clase.id].push(nuevoAlumnoId);
+                clasesInscritasExitosas.push(clase.clase);
+            }
         }
     });
 
-    if (nuevasInscripciones.length > 0) {
-        return res.status(201).json({
-            message: 'Reserva exitosa.',
-            alumnoId: alumnoId,
-            inscripcionesRealizadas: nuevasInscripciones.length
-        });
-    } else {
-        return res.status(200).json({
-            message: 'El alumno ya estaba inscrito a todas las clases seleccionadas.',
-            alumnoId: alumnoId,
-            inscripcionesRealizadas: 0
-        });
-    }
+    updateClasesCount();
+
+    res.status(201).json({
+        mensaje: 'Inscripción exitosa. Alumno registrado.',
+        alumnoId: nuevoAlumnoId,
+        clasesInscritas: clasesInscritasExitosas
+    });
 });
 
-/**
- * PUT /api/alumnos/:id
- * Actualiza los datos de un alumno existente (CRUD: MODIFICAR).
- */
+// --- Rutas de Gestión de Alumnos (ABM/CRUD) ---
+
+// 4. OBTENER ALUMNOS (Reporte)
+app.get('/api/alumnos', (req, res) => {
+    res.json(alumnos);
+});
+
+// 5. OBTENER CLASES INSCRITAS DE UN ALUMNO (Reporte Detalle)
+app.get('/api/alumnos/:id/clases', (req, res) => {
+    const alumnoId = req.params.id;
+    const clasesInscritas = [];
+
+    for (const claseId in alumnosClases) {
+        if (alumnosClases[claseId].includes(alumnoId)) {
+            const clase = clases.find(c => c.id === claseId);
+            if (clase) {
+                clasesInscritas.push(clase);
+            }
+        }
+    }
+    res.json(clasesInscritas);
+});
+
+
+// 6. MODIFICAR ALUMNO (ABM/CRUD: Update)
 app.put('/api/alumnos/:id', (req, res) => {
     const alumnoId = req.params.id;
-    const updatedData = req.body;
-    const index = alumnos.findIndex(a => a.id_alumno === alumnoId);
+    const { nombres, apellidos, dni, email, telefono } = req.body;
+
+    const index = alumnos.findIndex(a => a.id === alumnoId);
 
     if (index === -1) {
-        return res.status(404).json({ message: 'Alumno no encontrado.' });
+        return res.status(404).json({ error: 'Alumno no encontrado para modificar' });
     }
 
-    alumnos[index] = { ...alumnos[index], ...updatedData, id_alumno: alumnoId };
-    return res.status(200).json(alumnos[index]);
+    // Actualizar solo los campos proporcionados
+    alumnos[index] = {
+        ...alumnos[index],
+        nombres: nombres || alumnos[index].nombres,
+        apellidos: apellidos || alumnos[index].apellidos,
+        dni: dni || alumnos[index].dni,
+        email: email || alumnos[index].email,
+        telefono: telefono || alumnos[index].telefono,
+    };
+
+    res.json({ mensaje: 'Alumno actualizado con éxito', alumno: alumnos[index] });
 });
 
-/**
- * DELETE /api/alumnos/:id
- * Elimina un alumno y todas sus inscripciones (CRUD: ELIMINAR).
- */
+// 7. ELIMINAR ALUMNO (ABM/CRUD: Delete)
 app.delete('/api/alumnos/:id', (req, res) => {
     const alumnoId = req.params.id;
-    const initialLength = alumnos.length;
 
-    // Eliminar alumno
-    alumnos = alumnos.filter(a => a.id_alumno !== alumnoId);
+    // 1. Eliminar de la lista de alumnos
+    const initialLength = alumnos.length;
+    alumnos = alumnos.filter(a => a.id !== alumnoId);
 
     if (alumnos.length === initialLength) {
-        return res.status(404).json({ message: 'Alumno no encontrado.' });
+        return res.status(404).json({ error: 'Alumno no encontrado para eliminar' });
     }
 
-    // Eliminar inscripciones asociadas
-    alumnos_clases = alumnos_clases.filter(ac => ac.alumno_id !== alumnoId);
+    // 2. Eliminar al alumno de todas las clases inscritas
+    for (const claseId in alumnosClases) {
+        alumnosClases[claseId] = alumnosClases[claseId].filter(id => id !== alumnoId);
+        // Opcional: limpiar entradas vacías
+        if (alumnosClases[claseId].length === 0) {
+            delete alumnosClases[claseId];
+        }
+    }
 
-    return res.status(204).send(); // 204 No Content
+    updateClasesCount();
+    res.status(204).send(); // 204 No Content para eliminación exitosa
 });
 
-// -----------------------------------------------------------------------------
-// Inicio del Servidor
-// -----------------------------------------------------------------------------
-const server = app.listen(PORT, () => {
-    console.log(`🚀 Servidor API escuchando en http://localhost:${PORT}`);
-    console.log(`Capacidad máxima por clase: ${MAX_ALUMNOS} alumnos.`);
+
+// --- Servir Frontend (Fallback) ---
+// Debe ser la última ruta para actuar como fallback
+app.get('*', (req, res) => {
+    // Si la solicitud no es para un recurso de la API, sirve el archivo del frontend (App.jsx)
+    // El frontend hará peticiones a /api/*
+    res.sendFile(path.join(__dirname, 'App.jsx'), { headers: { 'Content-Type': 'application/javascript' } }, (err) => {
+        if (err) {
+            console.error('Error al intentar servir App.jsx:', err);
+            res.status(404).send('No se pudo encontrar el frontend (App.jsx). Asegúrate de que existe en el directorio del servidor.');
+        }
+    });
 });
 
-// Exporta la app para testing (Punto 3.1)
-module.exports = { app, server, MAX_ALUMNOS };
+
+// --- Inicio del Servidor ---
+if (process.env.NODE_ENV !== 'test') {
+    app.listen(PORT, () => {
+        console.log(`Servidor API escuchando en http://localhost:${PORT}`);
+    });
+}
+
+// Exportar la aplicación para el testing con supertest
+module.exports = app;
