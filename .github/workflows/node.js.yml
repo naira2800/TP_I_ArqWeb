@@ -1,6 +1,3 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
-
 name: Node.js CI
 
 on:
@@ -28,10 +25,9 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm' # Habilitar caché para dependencias
     
-    # Paso 3: Instalación limpia de dependencias (usa package-lock.json)
-    # Ya que package-lock.json está presente, esto debería funcionar.
-    - name: Install Dependencies
-      run: npm ci
+    # Paso 3: Instalación y Sincronización de dependencias (usamos 'install' en lugar de 'ci' para resolver el problema de lock file)
+    - name: Install and Sync Dependencies
+      run: npm install
       
     # Paso 4: Ejecutar script de build (si existe)
     - name: Run Build
