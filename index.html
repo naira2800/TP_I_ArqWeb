@@ -1,608 +1,790 @@
-// -----------------------------------------------------------------------------
-// 1. Frontend: Implementación de la Grilla, Formulario y Reportes
-// -----------------------------------------------------------------------------
-import React, { useState, useEffect, useCallback } from 'react';
-import { RefreshCcw, User, Calendar, BookOpen, Trash2, Edit } from 'lucide-react';
-
-// URL base de la API de Node.js
-const API_URL = 'http://localhost:3000/api';
-
-// Utilidad para mapear los días en español y su orden
-const DIAS_SEMANA = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado '];
-
-// Componente principal de la aplicación
-const App = () => {
-    // Estados de la aplicación
-    const [horario, setHorario] = useState([]);
-    const [alumnos, setAlumnos] = useState([]);
-    const [view, setView] = useState('horario'); // 'horario', 'reporte', 'crud'
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [formData, setFormData] = useState({ // Estado para el formulario de reserva
-        nombres: '',
-        apellidos: '',
-        dni: '',
-        email: '',
-        telefono: '',
-        clasesSeleccionadas: []
-    });
-    const [modal, setModal] = useState({ // Estado para el modal de reserva o edición
-        isOpen: false,
-        type: 'reserve', // 'reserve' o 'edit'
-        claseId: null,
-        alumnoId: null,
-        title: ''
-    });
-
-    // -------------------------------------------------------------------------
-    // Funciones de Fetching de Datos (CRUD: LEER)
-    // -------------------------------------------------------------------------
-
-    // Función para obtener la grilla de horarios
-    const fetchHorario = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const response = await fetch(`${API_URL}/horario`);
-            if (!response.ok) throw new Error('Error al cargar el horario.');
-            const data = await response.json();
-
-            // Agrupa y ordena el horario por día para la grilla
-            const grouped = data.reduce((acc, clase) => {
-                const dia = clase.dia.trim();
-                if (!acc[dia]) acc[dia] = [];
-                acc[dia].push(clase);
-                return acc;
-            }, {});
-
-            // Ordena las clases dentro de cada día por hora
-            Object.keys(grouped).forEach(dia => {
-                grouped[dia].sort((a, b) => a.hora.localeCompare(b.hora));
-            });
-
-            setHorario(grouped);
-        } catch (err) {
-            console.error('Fetch Error:', err);
-            setError('No se pudo conectar al servidor. Asegúrate de que el backend esté corriendo.');
-        } finally {
-            setLoading(false);
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yoga & Pilates - Horarios y Reservas</title>
+    <!-- Carga de Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Carga de React, ReactDOM y Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f7f7f7; }
+        .grid-schedule {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(100px, 1fr));
         }
-    }, []);
-
-    // Función para obtener la lista de alumnos (para Reporte/CRUD)
-    const fetchAlumnos = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const response = await fetch(`${API_URL}/alumnos`);
-            if (!response.ok) throw new Error('Error al cargar alumnos.');
-            const data = await response.json();
-            setAlumnos(data);
-        } catch (err) {
-            console.error('Fetch Error:', err);
-            setError('No se pudo cargar la lista de alumnos.');
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        if (view === 'horario') {
-            fetchHorario();
-        } else if (view === 'reporte' || view === 'crud') {
-            fetchAlumnos();
-        }
-    }, [view, fetchHorario, fetchAlumnos]);
-
-    // -------------------------------------------------------------------------
-    // Lógica del Formulario y Reservas (CRUD: CREAR)
-    // -------------------------------------------------------------------------
-
-    const openReserveModal = (claseId) => {
-        const clase = getClaseById(claseId);
-        if (!clase.disponible) {
-            // Requisito: Si la clase está completa, aparece un alert.
-            alert(`La clase ${clase.dia} a las ${clase.hora.substring(0, 5)} (${clase.clase}) está completa y no puedes inscribirte.`);
-            return;
-        }
-
-        // Limpiar el formulario y abrir modal
-        setFormData({ nombres: '', apellidos: '', dni: '', email: '', telefono: '', clasesSeleccionadas: [claseId] });
-        setModal({
-            isOpen: true,
-            type: 'reserve',
-            claseId: claseId,
-            alumnoId: null,
-            title: `Reserva para: ${clase.clase} (${clase.dia} ${clase.hora.substring(0, 5)})`
-        });
-    };
-
-    const handleFormChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
-
-    const toggleClaseSeleccionada = (claseId) => {
-        setFormData(prev => {
-            const newClases = prev.clasesSeleccionadas.includes(claseId)
-                ? prev.clasesSeleccionadas.filter(id => id !== claseId)
-                : [...prev.clasesSeleccionadas, claseId];
-            return { ...prev, clasesSeleccionadas: newClases };
-        });
-    };
-
-    // Función para manejar el envío del formulario de reserva/edición
-    const handleFormSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError(null);
-
-        const alumnoData = {
-            nombres: formData.nombres.trim(),
-            apellidos: formData.apellidos.trim(),
-            dni: formData.dni.trim(),
-            email: formData.email.trim(),
-            telefono: formData.telefono.trim(),
-        };
-
-        if (modal.type === 'reserve') {
-            try {
-                const payload = {
-                    alumno: alumnoData,
-                    clases: formData.clasesSeleccionadas
-                };
-
-                const response = await fetch(`${API_URL}/reservas`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                });
-
-                const result = await response.json();
-
-                if (response.ok && response.status === 201) {
-                    alert(`¡Reserva exitosa para ${result.inscripcionesRealizadas} clases!`);
-                    setModal({ isOpen: false });
-                    fetchHorario(); // Actualizar grilla
-                } else if (response.status === 409) {
-                    // Requisito: Si una clase está completa, aparecerá un alert informándole.
-                    alert(`¡ERROR! Las siguientes clases están completas y no se pudo completar la reserva:\n- ${result.clasesCompletas.join('\n- ')}`);
-                } else {
-                    throw new Error(result.message || 'Error desconocido al procesar la reserva.');
-                }
-            } catch (err) {
-                console.error('Error de Reserva:', err);
-                setError(err.message);
-            }
-        } else if (modal.type === 'edit') {
-            // CRUD: MODIFICAR (Alumnos)
-            try {
-                const response = await fetch(`${API_URL}/alumnos/${modal.alumnoId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(alumnoData),
-                });
-
-                if (!response.ok) throw new Error('Error al actualizar alumno.');
-                alert('Alumno actualizado exitosamente.');
-                setModal({ isOpen: false });
-                fetchAlumnos(); // Actualizar lista de alumnos
-            } catch (err) {
-                console.error('Error de Edición:', err);
-                setError(err.message);
+        @media (max-width: 1024px) {
+            .grid-schedule {
+                grid-template-columns: repeat(3, minmax(100px, 1fr));
             }
         }
-        setLoading(false);
-    };
-
-
-    // -------------------------------------------------------------------------
-    // Lógica CRUD de Alumnos (Punto 1.1: ABM)
-    // -------------------------------------------------------------------------
-
-    const openEditModal = (alumno) => {
-        setFormData({
-            nombres: alumno.nombres,
-            apellidos: alumno.apellidos,
-            dni: alumno.dni,
-            email: alumno.email,
-            telefono: alumno.telefono,
-            clasesSeleccionadas: []
-        });
-        setModal({
-            isOpen: true,
-            type: 'edit',
-            claseId: null,
-            alumnoId: alumno.id_alumno,
-            title: `Editar Alumno: ${alumno.nombres} ${alumno.apellidos}`
-        });
-    };
-
-    const handleDeleteAlumno = async (alumnoId) => {
-        // Usar un modal custom en lugar de window.confirm()
-        if (!window.confirm('¿Está seguro de eliminar a este alumno y todas sus inscripciones?')) {
-            return;
+        @media (max-width: 640px) {
+            .grid-schedule {
+                grid-template-columns: repeat(2, minmax(100px, 1fr));
+            }
         }
-        setLoading(true);
-        try {
-            const response = await fetch(`${API_URL}/alumnos/${alumnoId}`, {
-                method: 'DELETE',
-            });
+        /* Estilo para el contenedor del modal */
+        .modal-container {
+            transition: opacity 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
 
-            if (!response.ok) throw new Error('Error al eliminar alumno.');
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useMemo } = React;
+
+        const API_BASE_URL = window.location.origin.includes('localhost') ? 'http://localhost:3000/api' : '/api';
+        
+        // --- Constantes y Utilidades ---
+        const DIAS_SEMANA = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+        const MAX_ALUMNOS = 6;
+        
+        // Formatea la hora a HH:MM
+        const formatTime = (timeStr) => timeStr ? timeStr.substring(0, 5) : '';
+
+        // --- Componentes Reutilizables ---
+
+        // Componente para notificaciones personalizadas (reemplaza alert/confirm)
+        const CustomModal = ({ title, message, onClose, isConfirm, onConfirm }) => {
+            if (!message) return null;
             
-            alert('Alumno eliminado exitosamente.');
-            fetchAlumnos();
-        } catch (err) {
-            console.error('Error de Eliminación:', err);
-            setError(err.message || 'No se pudo eliminar el alumno.');
-        } finally {
-            setLoading(false);
-        }
-    };
-    
-    // -------------------------------------------------------------------------
-    // Componentes de Renderizado
-    // -------------------------------------------------------------------------
-
-    const getClaseById = (id) => {
-        for (const dia in horario) {
-            const clase = horario[dia].find(c => c.id_clase === id);
-            if (clase) return clase;
-        }
-        return null;
-    };
-
-    /**
-     * Renderiza la grilla de horarios.
-     */
-    const renderHorarioGrid = () => (
-        <div className="p-4 md:p-8">
-            <h1 className="text-3xl font-extrabold text-indigo-800 mb-6 flex items-center justify-center">
-                <Calendar className="mr-2 h-7 w-7" /> Horario de Clases
-            </h1>
-            <p className="text-gray-600 text-center mb-6">
-                Capacidad máxima por clase: <span className="font-bold text-red-500">6 alumnos</span>. Haz click en una clase disponible para reservar.
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                {DIAS_SEMANA.map(dia => (
-                    <div key={dia} className="flex flex-col">
-                        <h2 className="text-lg font-semibold bg-indigo-500 text-white p-2 rounded-t-lg shadow-md capitalize">
-                            {dia}
-                        </h2>
-                        <div className="space-y-2 p-1 border border-indigo-200 rounded-b-lg flex-grow">
-                            {horario[dia.trim()] && horario[dia.trim()].length > 0 ? (
-                                horario[dia.trim()].map(clase => (
-                                    <div
-                                        key={clase.id_clase}
-                                        onClick={() => clase.disponible && openReserveModal(clase.id_clase)}
-                                        className={`p-3 rounded-lg shadow-sm transition-all duration-300 transform hover:scale-[1.02] cursor-pointer text-sm
-                                            ${clase.disponible
-                                            ? 'bg-green-100 text-green-800 border-green-300 hover:bg-green-200'
-                                            : 'bg-red-200 text-red-800 border-red-400 opacity-70 cursor-not-allowed'
-                                            }`}
-                                    >
-                                        <div className="font-bold">{clase.hora.substring(0, 5)} - {clase.clase}</div>
-                                        <div className="mt-1 text-xs">
-                                            {clase.estado} ({clase.cupoActual}/{clase.cupoMaximo})
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="p-3 text-center text-gray-500 text-sm">No hay clases programadas.</div>
+            return (
+                <div className="modal-container fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-auto p-6 transition-all transform scale-100">
+                        <h3 className={`text-xl font-bold mb-4 ${isConfirm ? 'text-indigo-600' : 'text-red-600'}`}>
+                            {title}
+                        </h3>
+                        <p className="text-gray-700 mb-6 whitespace-pre-line">{message}</p>
+                        <div className="flex justify-end space-x-3">
+                            {isConfirm && (
+                                <button
+                                    onClick={onClose}
+                                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition duration-150"
+                                >
+                                    Cancelar
+                                </button>
                             )}
+                            <button
+                                onClick={isConfirm ? onConfirm : onClose}
+                                className={`px-4 py-2 rounded-lg text-white font-semibold transition duration-150 ${isConfirm ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-red-600 hover:bg-red-700'}`}
+                            >
+                                {isConfirm ? 'Confirmar' : 'Aceptar'}
+                            </button>
                         </div>
                     </div>
-                ))}
-            </div>
-        </div>
-    );
+                </div>
+            );
+        };
 
-    /**
-     * Renderiza el modal de Reserva/Edición.
-     */
-    const renderModal = () => {
-        if (!modal.isOpen) return null;
+        // --- Componente de la Aplicación Principal ---
 
-        return (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-                    <h2 className="text-2xl font-bold mb-4 text-indigo-700">{modal.title}</h2>
-                    <form onSubmit={handleFormSubmit}>
-                        <div className="grid grid-cols-1 gap-4 mb-4">
-                            <input
-                                type="text"
-                                name="nombres"
-                                placeholder="Nombres"
-                                value={formData.nombres}
-                                onChange={handleFormChange}
-                                required
-                                className="p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                            />
-                            <input
-                                type="text"
-                                name="apellidos"
-                                placeholder="Apellidos"
-                                value={formData.apellidos}
-                                onChange={handleFormChange}
-                                required
-                                className="p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                            />
-                            <input
-                                type="text"
-                                name="dni"
-                                placeholder="DNI"
-                                value={formData.dni}
-                                onChange={handleFormChange}
-                                required
-                                disabled={modal.type === 'edit'} // No se puede editar el DNI en el ABM
-                                className="p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
-                            />
-                            <input
-                                type="email"
-                                name="email"
-                                placeholder="Email"
-                                value={formData.email}
-                                onChange={handleFormChange}
-                                required
-                                className="p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                            />
-                            <input
-                                type="text"
-                                name="telefono"
-                                placeholder="Teléfono"
-                                value={formData.telefono}
-                                onChange={handleFormChange}
-                                required
-                                className="p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                            />
+        function App() {
+            const [clases, setClases] = useState([]);
+            const [alumnos, setAlumnos] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [activeScreen, setActiveScreen] = useState('horarios'); // 'horarios', 'alumnos', 'abm'
+
+            // Estado para Modales
+            const [modal, setModal] = useState({ show: false, title: '', message: '', isConfirm: false, onConfirm: null });
+
+            const showError = (message) => {
+                setModal({ show: true, title: 'Error de Operación', message, onClose: () => setModal({ show: false }), isConfirm: false });
+            };
+
+            const showSuccess = (message) => {
+                setModal({ show: true, title: 'Operación Exitosa', message, onClose: () => setModal({ show: false }), isConfirm: false });
+            };
+
+            const fetchClases = useCallback(async () => {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/clases`);
+                    if (!response.ok) throw new Error('Error al cargar las clases.');
+                    const data = await response.json();
+                    setClases(data);
+                } catch (error) {
+                    showError(`Error al cargar el horario: ${error.message}`);
+                } finally {
+                    setLoading(false);
+                }
+            }, []);
+
+            const fetchAlumnos = useCallback(async () => {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/alumnos`);
+                    if (!response.ok) throw new Error('Error al cargar la lista de alumnos.');
+                    const data = await response.json();
+                    setAlumnos(data);
+                } catch (error) {
+                    showError(`Error al cargar alumnos: ${error.message}`);
+                } finally {
+                    setLoading(false);
+                }
+            }, []);
+
+            useEffect(() => {
+                if (activeScreen === 'horarios') {
+                    fetchClases();
+                } else if (activeScreen === 'alumnos' || activeScreen === 'abm') {
+                    fetchAlumnos();
+                }
+            }, [activeScreen, fetchClases, fetchAlumnos]);
+
+            if (loading && activeScreen === 'horarios') {
+                return (
+                    <div className="flex justify-center items-center h-screen">
+                        <p className="text-xl text-indigo-600">Cargando horario...</p>
+                    </div>
+                );
+            }
+
+            // Mapeo de componentes para las distintas vistas
+            const renderScreen = () => {
+                switch (activeScreen) {
+                    case 'horarios':
+                        return <HorariosGrid clases={clases} fetchClases={fetchClases} showError={showError} showSuccess={showSuccess} />;
+                    case 'alumnos':
+                        return <AlumnosReporte alumnos={alumnos} showError={showError} />;
+                    case 'abm':
+                        return <AlumnosABM alumnos={alumnos} fetchAlumnos={fetchAlumnos} showError={showError} showSuccess={showSuccess} />;
+                    default:
+                        return <HorariosGrid clases={clases} fetchClases={fetchClases} showError={showError} showSuccess={showSuccess} />;
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <CustomModal 
+                        title={modal.title} 
+                        message={modal.message} 
+                        onClose={() => setModal({ show: false })} 
+                        isConfirm={modal.isConfirm} 
+                        onConfirm={modal.onConfirm}
+                    />
+
+                    <header className="bg-indigo-700 shadow-lg sticky top-0 z-10">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-center">
+                            <h1 className="text-3xl font-extrabold text-white mb-2 sm:mb-0">
+                                Centro Zen
+                            </h1>
+                            <nav className="flex flex-wrap space-x-2 sm:space-x-4">
+                                <NavButton label="Horarios y Reserva" target="horarios" active={activeScreen} setActive={setActiveScreen} />
+                                <NavButton label="Reporte de Alumnos" target="alumnos" active={activeScreen} setActive={setActiveScreen} />
+                                <NavButton label="Gestión de Alumnos (ABM)" target="abm" active={activeScreen} setActive={setActiveScreen} />
+                            </nav>
+                        </div>
+                    </header>
+
+                    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        {renderScreen()}
+                    </main>
+                </div>
+            );
+        }
+
+        const NavButton = ({ label, target, active, setActive }) => (
+            <button
+                onClick={() => setActive(target)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition duration-200 ease-in-out ${
+                    active === target
+                        ? 'bg-indigo-500 text-white shadow-md'
+                        : 'text-indigo-200 hover:bg-indigo-600 hover:text-white'
+                }`}
+            >
+                {label}
+            </button>
+        );
+
+
+        // --- Vistas de la Aplicación ---
+
+        // 1. HORARIOS Y RESERVAS
+        const HorariosGrid = ({ clases, fetchClases, showError, showSuccess }) => {
+            const [selectedClases, setSelectedClases] = useState([]);
+            const [showForm, setShowForm] = useState(false);
+            const [formKey, setFormKey] = useState(0); // Para forzar el reseteo del formulario
+            
+            // Agrupar clases por hora
+            const clasesPorHora = useMemo(() => {
+                const grouped = {};
+                DIAS_SEMANA.forEach(dia => {
+                    clases.filter(c => c.dia.trim().toLowerCase() === dia)
+                        .forEach(clase => {
+                            const hora = formatTime(clase.hora);
+                            if (!grouped[hora]) grouped[hora] = {};
+                            grouped[hora][dia] = clase;
+                        });
+                });
+                return grouped;
+            }, [clases]);
+
+            const horasOrdenadas = useMemo(() => Object.keys(clasesPorHora).sort(), [clasesPorHora]);
+
+            const handleSelectClase = (clase) => {
+                if (clase.cupoCompleto) {
+                    showError(`La clase de ${clase.clase} a las ${formatTime(clase.hora)} del ${clase.dia} está completa (Cupo: ${MAX_ALUMNOS}).`);
+                    return;
+                }
+
+                if (selectedClases.some(c => c.id === clase.id)) {
+                    setSelectedClases(selectedClases.filter(c => c.id !== clase.id));
+                } else {
+                    setSelectedClases([...selectedClases, clase]);
+                }
+            };
+
+            const handleOpenForm = () => {
+                if (selectedClases.length === 0) {
+                    showError('Por favor, selecciona al menos una clase para inscribirte.');
+                    return;
+                }
+                setShowForm(true);
+            };
+
+            const handleInscripcionSuccess = (mensaje) => {
+                setShowForm(false);
+                setSelectedClases([]);
+                setFormKey(prev => prev + 1);
+                fetchClases(); // Actualizar la grilla de horarios
+                showSuccess(mensaje);
+            };
+
+            // Estilos
+            const getClaseStyle = (clase) => {
+                let baseStyle = "p-2 sm:p-3 text-center transition duration-200 ease-in-out border border-gray-200 rounded-lg shadow-sm cursor-pointer h-full flex flex-col justify-between";
+                
+                if (selectedClases.some(c => c.id === clase.id)) {
+                    return `${baseStyle} bg-indigo-500 text-white font-semibold transform scale-105`;
+                }
+
+                if (clase.cupoCompleto) {
+                    return `${baseStyle} bg-red-100 text-red-700 line-through opacity-70 cursor-not-allowed`;
+                }
+                
+                if (clase.cantAlumnos >= MAX_ALUMNOS - 1) {
+                    return `${baseStyle} bg-yellow-100 text-yellow-700 hover:bg-yellow-200`; // Último cupo
+                }
+
+                return `${baseStyle} bg-white text-gray-800 hover:bg-indigo-50`;
+            };
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-3xl font-bold text-gray-800 border-b pb-2">Horario Semanal & Reserva de Clases</h2>
+                    <p className="text-gray-600 bg-white p-4 rounded-xl shadow-md border-l-4 border-indigo-500">
+                        Selecciona las clases de interés. Las clases en **rojo/tachado** están completas (máximo {MAX_ALUMNOS} alumnos). Las clases en **amarillo** tienen el último cupo disponible.
+                    </p>
+
+                    {/* Leyenda y Botón de Reserva */}
+                    <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-md">
+                        <div className="text-lg font-semibold text-gray-700 mb-4 sm:mb-0">
+                            Clases Seleccionadas: <span className="text-indigo-600">{selectedClases.length}</span>
+                        </div>
+                        <button
+                            onClick={handleOpenForm}
+                            className={`px-6 py-3 rounded-full font-bold text-white transition duration-300 shadow-lg ${
+                                selectedClases.length > 0
+                                    ? 'bg-indigo-600 hover:bg-indigo-700 transform hover:scale-105'
+                                    : 'bg-gray-400 cursor-not-allowed'
+                            }`}
+                            disabled={selectedClases.length === 0}
+                        >
+                            Reservar Clases Seleccionadas
+                        </button>
+                    </div>
+
+                    {/* Grilla de Horarios */}
+                    <div className="overflow-x-auto bg-white rounded-xl shadow-lg p-4">
+                        <div className="grid-schedule min-w-full">
+                            {/* Cabecera de Días */}
+                            <div className="sticky left-0 bg-white z-10 p-3 font-bold text-gray-800 border-r border-gray-200">Hora</div>
+                            {DIAS_SEMANA.map(dia => (
+                                <div key={dia} className="p-3 font-bold text-center text-gray-800 border-b border-gray-200 capitalize">
+                                    {dia}
+                                </div>
+                            ))}
+                            
+                            {/* Celdas de Clases */}
+                            {horasOrdenadas.map(hora => (
+                                <React.Fragment key={hora}>
+                                    <div className="sticky left-0 bg-indigo-50 font-semibold p-3 text-sm border-r border-gray-200">
+                                        {hora}
+                                    </div>
+                                    {DIAS_SEMANA.map(dia => {
+                                        const clase = clasesPorHora[hora][dia];
+                                        return (
+                                            <div key={dia} className="p-1 sm:p-2 border-b border-gray-200">
+                                                {clase ? (
+                                                    <div 
+                                                        className={getClaseStyle(clase)}
+                                                        onClick={() => handleSelectClase(clase)}
+                                                    >
+                                                        <span className="font-bold text-sm sm:text-md mb-1">{clase.clase}</span>
+                                                        <span className={`text-xs sm:text-sm font-medium ${clase.cupoCompleto ? 'text-red-500' : 'text-gray-600'}`}>
+                                                            {clase.cupoCompleto ? 'COMPLETA' : `Cupos: ${clase.cuposDisponibles}/${MAX_ALUMNOS}`}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="p-4 bg-gray-50 h-full rounded-lg border border-dashed border-gray-300"></div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </React.Fragment>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Formulario de Inscripción */}
+                    {showForm && (
+                        <InscripcionForm 
+                            key={formKey}
+                            selectedClases={selectedClases}
+                            onSuccess={handleInscripcionSuccess}
+                            onCancel={() => setShowForm(false)}
+                            showError={showError}
+                        />
+                    )}
+                </div>
+            );
+        };
+
+        // 1.1 Formulario de Inscripción
+        const InscripcionForm = ({ selectedClases, onSuccess, onCancel, showError }) => {
+            const initialFormState = { nombres: '', apellidos: '', dni: '', email: '', telefono: '' };
+            const [formData, setFormData] = useState(initialFormState);
+            const [isSubmitting, setIsSubmitting] = useState(false);
+
+            const clasesText = selectedClases.map(c => 
+                `${c.clase} (${c.dia} ${formatTime(c.hora)})`
+            ).join('\n- ');
+            
+            const handleChange = (e) => {
+                const { name, value } = e.target;
+                setFormData(prev => ({ ...prev, [name]: value }));
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setIsSubmitting(true);
+                
+                // Validación básica
+                if (!formData.nombres || !formData.apellidos || !formData.dni || !formData.email) {
+                    showError('Por favor, completa todos los campos obligatorios (nombre, apellido, DNI, email).');
+                    setIsSubmitting(false);
+                    return;
+                }
+
+                const payload = {
+                    ...formData,
+                    clases_ids: selectedClases.map(c => c.id)
+                };
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/inscripcion`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.status === 409) {
+                        // Conflicto de Cupo Lleno
+                        const errorData = await response.json();
+                        showError(`¡ATENCIÓN! La inscripción falló debido a que las siguientes clases se completaron durante el proceso:\n- ${errorData.clasesCompletas}. \nPor favor, desmarca estas clases y vuelve a intentarlo.`);
+                        onCancel(); // Cerrar el formulario
+                        return;
+                    }
+
+                    if (!response.ok) throw new Error('Error de servidor al procesar la inscripción.');
+                    
+                    const result = await response.json();
+                    
+                    let message = `¡Felicitaciones ${formData.nombres}! Tu inscripción ha sido procesada con éxito.`;
+                    if(result.clasesInscritas.length > 0) {
+                        message += `\nTe has inscrito a las siguientes clases:\n- ${result.clasesInscritas.join('\n- ')}`;
+                    } else {
+                        message += "\nNo se pudo inscribir a ninguna clase (posiblemente ya estabas inscrito o los cupos se agotaron al final).";
+                    }
+
+                    onSuccess(message);
+
+                } catch (error) {
+                    console.error('Error:', error);
+                    showError(`Ocurrió un error inesperado al inscribir: ${error.message}`);
+                } finally {
+                    setIsSubmitting(false);
+                }
+            };
+
+            return (
+                <div className="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center p-4 z-40 modal-container">
+                    <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 space-y-6">
+                        <h3 className="text-2xl font-bold text-indigo-600 border-b pb-2">Formulario de Inscripción</h3>
+                        
+                        <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+                            <p className="font-semibold text-indigo-700 mb-2">Clases a inscribir:</p>
+                            <pre className="text-sm text-gray-700 bg-white p-3 rounded overflow-x-auto">{clasesText}</pre>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <InputField name="nombres" label="Nombres (*)" value={formData.nombres} onChange={handleChange} required />
+                            <InputField name="apellidos" label="Apellidos (*)" value={formData.apellidos} onChange={handleChange} required />
+                            <InputField name="dni" label="DNI (*)" value={formData.dni} onChange={handleChange} type="text" required />
+                            <InputField name="email" label="Email (*)" value={formData.email} onChange={handleChange} type="email" required />
+                            <InputField name="telefono" label="Teléfono" value={formData.telefono} onChange={handleChange} type="tel" />
                         </div>
 
-                        {modal.type === 'reserve' && (
-                            <div className="mb-6 border p-4 rounded-lg bg-indigo-50">
-                                <h3 className="font-semibold text-indigo-700 mb-3 flex items-center">
-                                    <BookOpen className="mr-1 h-4 w-4" /> Seleccionar Clases Adicionales
-                                </h3>
-                                <div className="max-h-48 overflow-y-auto space-y-2">
-                                    {Object.values(horario).flat().map(clase => (
-                                        <label key={clase.id_clase} className={`flex items-center p-2 rounded-md transition duration-150 ${clase.disponible ? 'hover:bg-indigo-100 cursor-pointer' : 'bg-red-100 opacity-60 cursor-not-allowed'}`}>
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.clasesSeleccionadas.includes(clase.id_clase)}
-                                                onChange={() => toggleClaseSeleccionada(clase.id_clase)}
-                                                disabled={!clase.disponible}
-                                                className="form-checkbox h-5 w-5 text-indigo-600 rounded"
-                                            />
-                                            <span className={`ml-3 text-sm font-medium ${clase.disponible ? 'text-gray-700' : 'text-red-500 line-through'}`}>
-                                                {clase.dia} {clase.hora.substring(0, 5)} ({clase.clase}) - {clase.estado}
-                                            </span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="flex justify-end space-x-3">
+                        <div className="flex justify-end space-x-4 pt-4">
                             <button
                                 type="button"
-                                onClick={() => setModal({ isOpen: false })}
-                                className="px-4 py-2 bg-gray-300 text-gray-800 font-semibold rounded-lg hover:bg-gray-400 transition duration-150"
-                                disabled={loading}
+                                onClick={onCancel}
+                                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-full hover:bg-gray-100 transition duration-150"
+                                disabled={isSubmitting}
                             >
                                 Cancelar
                             </button>
                             <button
                                 type="submit"
-                                className="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition duration-150 disabled:bg-indigo-400 flex items-center"
-                                disabled={loading || formData.clasesSeleccionadas.length === 0 && modal.type === 'reserve'}
+                                className="px-8 py-2 bg-indigo-600 text-white font-bold rounded-full hover:bg-indigo-700 transition duration-150 shadow-md disabled:bg-indigo-400"
+                                disabled={isSubmitting}
                             >
-                                {loading && <RefreshCcw className="animate-spin mr-2 h-4 w-4" />}
-                                {modal.type === 'reserve' ? 'Guardar Reserva' : 'Guardar Cambios'}
+                                {isSubmitting ? 'Guardando...' : 'Guardar Inscripción'}
                             </button>
                         </div>
                     </form>
                 </div>
-            </div>
-        );
-    };
-
-    /**
-     * Componente de Tabla para el Reporte/CRUD.
-     */
-    const AlumnosTable = ({ showCrud = false }) => {
-        const [reporteAlumnoId, setReporteAlumnoId] = useState(null);
-        const [clasesReporte, setClasesReporte] = useState([]);
-        const [loadingReporte, setLoadingReporte] = useState(false);
-
-        // Obtiene las clases inscritas para un alumno (Punto 1.2: Reporte detallado)
-        const fetchClasesInscritas = async (id) => {
-            setLoadingReporte(true);
-            setReporteAlumnoId(id);
-            setClasesReporte([]);
-            try {
-                const response = await fetch(`${API_URL}/alumnos/${id}/clases`);
-                if (!response.ok) throw new Error('Error al cargar clases inscritas.');
-                const data = await response.json();
-                setClasesReporte(data);
-            } catch (err) {
-                console.error('Reporte Error:', err);
-                alert('Error al generar el reporte de clases del alumno.');
-            } finally {
-                setLoadingReporte(false);
-            }
-        };
-
-        const renderReporte = (alumno) => {
-            if (reporteAlumnoId !== alumno.id_alumno) return null;
-
-            return (
-                <tr className="bg-indigo-50">
-                    <td colSpan={showCrud ? 7 : 6} className="p-4 border-t border-indigo-200">
-                        <div className="font-semibold text-indigo-700 mb-2">Clases Inscritas:</div>
-                        {loadingReporte ? (
-                            <div className="text-gray-500 flex items-center"><RefreshCcw className="animate-spin mr-2 h-4 w-4" /> Cargando...</div>
-                        ) : clasesReporte.length > 0 ? (
-                            <ul className="list-disc list-inside text-sm space-y-1">
-                                {clasesReporte.map(c => (
-                                    <li key={c.id_clase}>{c.dia} {c.hora.substring(0, 5)} - {c.clase}</li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <div className="text-gray-500 text-sm">El alumno no tiene inscripciones activas.</div>
-                        )}
-                    </td>
-                </tr>
             );
         };
-
-        return (
-            <div className="overflow-x-auto rounded-xl shadow-lg border border-gray-200">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-indigo-600 text-white">
-                        <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Nombre Completo</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">DNI</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Email</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Teléfono</th>
-                            <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider">Acciones</th>
-                            {showCrud && <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider">ABM</th>}
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {alumnos.map((alumno) => (
-                            <React.Fragment key={alumno.id_alumno}>
-                                <tr className="hover:bg-gray-50 transition duration-150">
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{alumno.nombres} {alumno.apellidos}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{alumno.dni}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{alumno.email}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{alumno.telefono}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-center text-sm font-medium">
-                                        <button
-                                            onClick={() => fetchClasesInscritas(alumno.id_alumno)}
-                                            className="text-indigo-600 hover:text-indigo-900 transition duration-150 p-2 rounded-full hover:bg-indigo-100"
-                                            title="Ver Clases"
-                                        >
-                                            <BookOpen className="h-5 w-5" />
-                                        </button>
-                                    </td>
-                                    {showCrud && (
-                                        <td className="px-4 py-4 whitespace-nowrap text-center text-sm font-medium space-x-2">
-                                            <button
-                                                onClick={() => openEditModal(alumno)}
-                                                className="text-green-600 hover:text-green-900 transition duration-150 p-2 rounded-full hover:bg-green-100"
-                                                title="Editar"
-                                            >
-                                                <Edit className="h-5 w-5" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteAlumno(alumno.id_alumno)}
-                                                className="text-red-600 hover:text-red-900 transition duration-150 p-2 rounded-full hover:bg-red-100"
-                                                title="Eliminar"
-                                            >
-                                                <Trash2 className="h-5 w-5" />
-                                            </button>
-                                        </td>
-                                    )}
-                                </tr>
-                                {renderReporte(alumno)}
-                            </React.Fragment>
-                        ))}
-                    </tbody>
-                </table>
+        
+        const InputField = ({ label, name, value, onChange, type = 'text', required = false }) => (
+            <div className="flex flex-col">
+                <label htmlFor={name} className="text-sm font-medium text-gray-700 mb-1">
+                    {label}
+                </label>
+                <input
+                    id={name}
+                    name={name}
+                    type={type}
+                    value={value}
+                    onChange={onChange}
+                    required={required}
+                    className="p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                />
             </div>
         );
-    };
 
-    /**
-     * Renderiza la pantalla de Reporte (Punto 1.2).
-     */
-    const renderReporteView = () => (
-        <div className="p-4 md:p-8">
-            <h1 className="text-3xl font-extrabold text-indigo-800 mb-6 flex items-center justify-center">
-                <BookOpen className="mr-2 h-7 w-7" /> Reporte de Alumnos y Clases
-            </h1>
-            <p className="text-gray-600 text-center mb-6">
-                Listado de alumnos registrados. Haz click en el icono de libro para ver el detalle de sus inscripciones.
-            </p>
-            {loading ? <p className="text-center text-indigo-500">Cargando alumnos...</p> : <AlumnosTable />}
-        </div>
-    );
-    
-    /**
-     * Renderiza la pantalla de CRUD (Punto 1.1: ABM).
-     */
-    const renderCrudView = () => (
-        <div className="p-4 md:p-8">
-            <h1 className="text-3xl font-extrabold text-indigo-800 mb-6 flex items-center justify-center">
-                <User className="mr-2 h-7 w-7" /> Gestión de Alumnos (CRUD/ABM)
-            </h1>
-            <p className="text-gray-600 text-center mb-6">
-                Administración de la base de datos de Alumnos: Modificar o Eliminar.
-            </p>
-            {loading ? <p className="text-center text-indigo-500">Cargando alumnos...</p> : <AlumnosTable showCrud={true} />}
-        </div>
-    );
 
-    // -------------------------------------------------------------------------
-    // Layout Principal
-    // -------------------------------------------------------------------------
+        // 2. REPORTE DE ALUMNOS (Pantalla de Reporte)
+        const AlumnosReporte = ({ alumnos, showError }) => {
+            const [selectedAlumno, setSelectedAlumno] = useState(null);
+            const [clasesInscritas, setClasesInscritas] = useState([]);
+            const [loadingClases, setLoadingClases] = useState(false);
+            const [filtro, setFiltro] = useState('');
 
-    return (
-        <div className="min-h-screen bg-gray-50 font-sans antialiased">
-            {/* Navbar de Navegación */}
-            <nav className="bg-white shadow-md sticky top-0 z-40">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between h-16">
-                        <div className="flex items-center">
-                            <span className="text-2xl font-bold text-indigo-600">YogaFlow</span>
+            const fetchClasesInscritas = useCallback(async (alumnoId) => {
+                setLoadingClases(true);
+                setSelectedAlumno(alumnos.find(a => a.id === alumnoId));
+                setClasesInscritas([]);
+                
+                try {
+                    const response = await fetch(`${API_BASE_URL}/alumnos/${alumnoId}/clases`);
+                    if (!response.ok) throw new Error('Error al cargar clases del alumno.');
+                    const data = await response.json();
+                    setClasesInscritas(data);
+                } catch (error) {
+                    showError(`Error al cargar clases: ${error.message}`);
+                } finally {
+                    setLoadingClases(false);
+                }
+            }, [alumnos, showError]);
+
+            const alumnosFiltrados = useMemo(() => {
+                const term = filtro.toLowerCase();
+                return alumnos.filter(a =>
+                    a.nombres.toLowerCase().includes(term) ||
+                    a.apellidos.toLowerCase().includes(term) ||
+                    a.dni.includes(term)
+                );
+            }, [alumnos, filtro]);
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-3xl font-bold text-gray-800 border-b pb-2">Reporte de Alumnos y Clases Inscritas</h2>
+                    <p className="text-gray-600 bg-white p-4 rounded-xl shadow-md border-l-4 border-indigo-500">
+                        Esta es la pantalla de reporte. Haz clic en un alumno para ver el detalle de las clases que tiene inscritas.
+                    </p>
+
+                    <input
+                        type="text"
+                        placeholder="Buscar por Nombre, Apellido o DNI..."
+                        value={filtro}
+                        onChange={(e) => setFiltro(e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+                    />
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Lista de Alumnos */}
+                        <div className="lg:col-span-1 bg-white rounded-xl shadow-lg overflow-hidden border">
+                            <h3 className="bg-gray-100 p-4 font-bold text-lg text-gray-700 border-b">Lista de Alumnos ({alumnosFiltrados.length})</h3>
+                            <div className="max-h-96 overflow-y-auto">
+                                {alumnosFiltrados.map(alumno => (
+                                    <div
+                                        key={alumno.id}
+                                        onClick={() => fetchClasesInscritas(alumno.id)}
+                                        className={`p-4 border-b last:border-b-0 cursor-pointer transition duration-150 ${
+                                            selectedAlumno && selectedAlumno.id === alumno.id ? 'bg-indigo-100 font-semibold' : 'hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        <p className="text-md text-gray-800">{alumno.nombres} {alumno.apellidos}</p>
+                                        <p className="text-sm text-gray-500">DNI: {alumno.dni}</p>
+                                    </div>
+                                ))}
+                                {alumnosFiltrados.length === 0 && <p className="p-4 text-center text-gray-500">No se encontraron alumnos.</p>}
+                            </div>
                         </div>
-                        <div className="flex items-center space-x-4">
-                            <NavItem name="Horario" currentView={view} targetView="horario" onClick={() => setView('horario')} />
-                            <NavItem name="Reporte" currentView={view} targetView="reporte" onClick={() => setView('reporte')} />
-                            <NavItem name="Gestión Alumnos (CRUD)" currentView={view} targetView="crud" onClick={() => setView('crud')} />
-                            <button
-                                onClick={fetchHorario}
-                                className="p-2 rounded-full text-gray-500 hover:text-indigo-600 hover:bg-indigo-100 transition duration-150"
-                                title="Recargar Data"
-                                disabled={loading}
-                            >
-                                <RefreshCcw className={`h-5 w-5 ${loading && view === 'horario' ? 'animate-spin' : ''}`} />
-                            </button>
+
+                        {/* Detalle del Alumno y Clases */}
+                        <div className="lg:col-span-2 bg-white rounded-xl shadow-lg p-6 border">
+                            {selectedAlumno ? (
+                                <div className="space-y-4">
+                                    <h3 className="text-2xl font-bold text-indigo-600 border-b pb-2">
+                                        Clases de {selectedAlumno.nombres} {selectedAlumno.apellidos}
+                                    </h3>
+                                    <div className="text-gray-700 space-y-1">
+                                        <p><strong>DNI:</strong> {selectedAlumno.dni}</p>
+                                        <p><strong>Email:</strong> {selectedAlumno.email}</p>
+                                        <p><strong>Teléfono:</strong> {selectedAlumno.telefono}</p>
+                                    </div>
+
+                                    <h4 className="text-xl font-semibold mt-4 pt-4 border-t">Clases Inscritas:</h4>
+                                    
+                                    {loadingClases ? (
+                                        <p className="text-indigo-500">Cargando inscripciones...</p>
+                                    ) : clasesInscritas.length > 0 ? (
+                                        <ul className="space-y-2">
+                                            {clasesInscritas.map(clase => (
+                                                <li key={clase.id} className="bg-indigo-50 p-3 rounded-lg border border-indigo-200">
+                                                    <p className="font-medium text-indigo-800">{clase.clase}</p>
+                                                    <p className="text-sm text-gray-600 capitalize">{clase.dia} - {formatTime(clase.hora)}</p>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <p className="text-gray-500">Este alumno no está inscrito en ninguna clase.</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <p className="text-lg text-gray-500 text-center py-10">
+                                    Selecciona un alumno de la lista para ver su reporte de clases.
+                                </p>
+                            )}
                         </div>
                     </div>
                 </div>
-            </nav>
+            );
+        };
 
-            <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-                {error && (
-                    <div className="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
-                        {error}
+
+        // 3. GESTIÓN DE ALUMNOS (ABM / CRUD)
+        const AlumnosABM = ({ alumnos, fetchAlumnos, showError, showSuccess }) => {
+            const [editAlumno, setEditAlumno] = useState(null);
+            const [filtro, setFiltro] = useState('');
+
+            const alumnosFiltrados = useMemo(() => {
+                const term = filtro.toLowerCase();
+                return alumnos.filter(a =>
+                    a.nombres.toLowerCase().includes(term) ||
+                    a.apellidos.toLowerCase().includes(term) ||
+                    a.dni.includes(term)
+                );
+            }, [alumnos, filtro]);
+
+            const handleEdit = (alumno) => {
+                setEditAlumno({ ...alumno });
+            };
+
+            const handleSave = async (e) => {
+                e.preventDefault();
+                const { id, nombres, apellidos, dni, email, telefono } = editAlumno;
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/alumnos/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ nombres, apellidos, dni, email, telefono })
+                    });
+                    
+                    if (!response.ok) throw new Error('Error al actualizar el alumno.');
+                    
+                    await response.json();
+                    setEditAlumno(null);
+                    fetchAlumnos();
+                    showSuccess(`Alumno ${nombres} ${apellidos} actualizado con éxito.`);
+                } catch (error) {
+                    showError(`Error al guardar: ${error.message}`);
+                }
+            };
+
+            const handleDelete = (alumno) => {
+                const { id, nombres, apellidos } = alumno;
+                setModal({
+                    show: true,
+                    title: 'Confirmar Eliminación',
+                    message: `¿Estás seguro de que deseas eliminar a ${nombres} ${apellidos}? Se eliminarán todas sus inscripciones.`,
+                    isConfirm: true,
+                    onConfirm: async () => {
+                        try {
+                            const response = await fetch(`${API_BASE_URL}/alumnos/${id}`, {
+                                method: 'DELETE'
+                            });
+                            
+                            if (response.status === 204) {
+                                fetchAlumnos();
+                                showSuccess(`Alumno ${nombres} ${apellidos} eliminado correctamente.`);
+                            } else {
+                                throw new Error('Error al eliminar el alumno.');
+                            }
+                        } catch (error) {
+                            showError(`Error al eliminar: ${error.message}`);
+                        } finally {
+                            setModal({ show: false });
+                        }
+                    },
+                    onClose: () => setModal({ show: false })
+                });
+            };
+            
+            const [modal, setModal] = useState({ show: false, title: '', message: '', isConfirm: false, onConfirm: null });
+
+            const InputFieldABM = ({ label, name, value, onChange, type = 'text' }) => (
+                <div className="flex flex-col">
+                    <label htmlFor={name} className="text-sm font-medium text-gray-700 mb-1">
+                        {label}
+                    </label>
+                    <input
+                        id={name}
+                        name={name}
+                        type={type}
+                        value={value || ''}
+                        onChange={onChange}
+                        className="p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                </div>
+            );
+
+            const EditModal = () => {
+                if (!editAlumno) return null;
+
+                const handleChangeEdit = (e) => {
+                    const { name, value } = e.target;
+                    setEditAlumno(prev => ({ ...prev, [name]: value }));
+                };
+
+                return (
+                    <div className="modal-container fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center p-4 z-40">
+                        <form onSubmit={handleSave} className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-6">
+                            <h3 className="text-2xl font-bold text-indigo-600 border-b pb-2">Editar Alumno</h3>
+                            
+                            <InputFieldABM name="nombres" label="Nombres" value={editAlumno.nombres} onChange={handleChangeEdit} />
+                            <InputFieldABM name="apellidos" label="Apellidos" value={editAlumno.apellidos} onChange={handleChangeEdit} />
+                            <InputFieldABM name="dni" label="DNI" value={editAlumno.dni} onChange={handleChangeEdit} type="text" />
+                            <InputFieldABM name="email" label="Email" value={editAlumno.email} onChange={handleChangeEdit} type="email" />
+                            <InputFieldABM name="telefono" label="Teléfono" value={editAlumno.telefono} onChange={handleChangeEdit} type="tel" />
+
+                            <div className="flex justify-end space-x-4 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setEditAlumno(null)}
+                                    className="px-6 py-2 border border-gray-300 text-gray-700 rounded-full hover:bg-gray-100 transition duration-150"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-8 py-2 bg-indigo-600 text-white font-bold rounded-full hover:bg-indigo-700 transition duration-150 shadow-md"
+                                >
+                                    Guardar Cambios
+                                </button>
+                            </div>
+                        </form>
                     </div>
-                )}
-                {view === 'horario' && renderHorarioGrid()}
-                {view === 'reporte' && renderReporteView()}
-                {view === 'crud' && renderCrudView()}
-            </main>
+                );
+            };
 
-            {renderModal()}
-        </div>
-    );
-};
+            return (
+                <div className="space-y-6">
+                    <CustomModal 
+                        title={modal.title} 
+                        message={modal.message} 
+                        onClose={modal.onClose} 
+                        isConfirm={modal.isConfirm} 
+                        onConfirm={modal.onConfirm}
+                    />
 
-// Componente de ayuda para la navegación
-const NavItem = ({ name, currentView, targetView, onClick }) => {
-    const isActive = currentView === targetView;
-    const baseClasses = "px-3 py-2 text-sm font-medium rounded-md transition duration-150";
-    const activeClasses = "bg-indigo-100 text-indigo-700";
-    const inactiveClasses = "text-gray-600 hover:bg-gray-50 hover:text-gray-800";
+                    <h2 className="text-3xl font-bold text-gray-800 border-b pb-2">Gestión de Alumnos (ABM)</h2>
+                    <p className="text-gray-600 bg-white p-4 rounded-xl shadow-md border-l-4 border-indigo-500">
+                        Aquí puedes buscar, modificar y eliminar los alumnos registrados. La creación de nuevos alumnos se realiza a través del formulario de reserva.
+                    </p>
 
-    return (
-        <button
-            onClick={onClick}
-            className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses}`}
-        >
-            {name}
-        </button>
-    );
-};
+                    <input
+                        type="text"
+                        placeholder="Buscar por Nombre, Apellido o DNI..."
+                        value={filtro}
+                        onChange={(e) => setFiltro(e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+                    />
+                    
+                    <div className="bg-white rounded-xl shadow-lg overflow-hidden border">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre Completo</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">DNI</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Email</th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {alumnosFiltrados.map(alumno => (
+                                    <tr key={alumno.id}>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{alumno.nombres} {alumno.apellidos}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden sm:table-cell">{alumno.dni}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">{alumno.email}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                            <button
+                                                onClick={() => handleEdit(alumno)}
+                                                className="text-indigo-600 hover:text-indigo-900 px-3 py-1 rounded-lg border border-indigo-200 hover:bg-indigo-50 transition"
+                                            >
+                                                Editar
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(alumno)}
+                                                className="text-red-600 hover:text-red-900 px-3 py-1 rounded-lg border border-red-200 hover:bg-red-50 transition"
+                                            >
+                                                Eliminar
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {alumnosFiltrados.length === 0 && (
+                                    <tr>
+                                        <td colSpan="4" className="text-center py-6 text-gray-500">No hay alumnos registrados o no coinciden con la búsqueda.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    <EditModal />
+                </div>
+            );
+        };
 
-export default App;
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
