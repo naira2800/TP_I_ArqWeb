@@ -11,21 +11,34 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     strategy:
+      # Pruebas en Node 18 y Node 20
       matrix:
         node-version: [18.x, 20.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
-
+        
     steps:
+    # Paso 1: Descargar el código fuente
     - uses: actions/checkout@v4
-    - name: Use node.js ${{ matrix.node-version }}
+    
+    # Paso 2: Configurar el ambiente de Node.js
+    - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    - run: npm ci
-    - run: npm run build --if-present
-    - run: npm test
+        cache: 'npm' # Habilitar caché para dependencias
+    
+    # Paso 3: Instalación limpia de dependencias (usa package-lock.json)
+    # Ya que package-lock.json está presente, esto debería funcionar.
+    - name: Install Dependencies
+      run: npm ci
+      
+    # Paso 4: Ejecutar script de build (si existe)
+    - name: Run Build
+      run: npm run build --if-present
+      
+    # Paso 5: Ejecutar pruebas
+    # Esto ejecuta el script "test": "jest"
+    - name: Run Tests
+      run: npm test
+
