@@ -1,40 +1,80 @@
-name: Node.js CI
+name: CI/CD de Yoga API (Test, Build, Deploy)
 
 on:
+  # Se ejecuta cuando hay un push o un Pull Request a la rama 'main'
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
 jobs:
-  build:
+  # Job 1: Ejecutar pruebas unitarias en diferentes versiones de Node
+  test:
+    name: Correr Pruebas (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    
+    # Estrategia para probar en Node 18 y 20
     strategy:
-      # Pruebas en Node 18 y Node 20
       matrix:
         node-version: [18.x, 20.x]
-        
+
     steps:
-    # Paso 1: Descargar el código fuente
-    - uses: actions/checkout@v4
-    
-    # Paso 2: Configurar el ambiente de Node.js
-    - name: Use Node.js ${{ matrix.node-version }}
+    - name: Checkout del Código
+      uses: actions/checkout@v4
+
+    - name: Configurar Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
-        cache: 'npm' # Habilitar caché para dependencias
+        cache: 'npm' # Habilita cache de dependencias
+        
+    # Usamos npm install para garantizar la sincronización del lock file
+    - name: Instalar Dependencias
+      run: npm install 
     
-    # Paso 3: Instalación y Sincronización de dependencias (usamos 'install' en lugar de 'ci' para resolver el problema de lock file)
-    - name: Install and Sync Dependencies
-      run: npm install
-      
-    # Paso 4: Ejecutar script de build (si existe)
-    - name: Run Build
-      run: npm run build --if-present
-      
-    # Paso 5: Ejecutar pruebas
-    # Esto ejecuta el script "test": "jest"
-    - name: Run Tests
+    - name: Ejecutar Pruebas con Jest
       run: npm test
 
+  # Job 2: Build (Depende del éxito de las pruebas)
+  # En Node.js, a menudo solo se instala y se verifica que no haya errores
+  build:
+    name: Build del Proyecto
+    needs: test # Solo se ejecuta si el job 'test' es exitoso
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout del Código
+      uses: actions/checkout@v4
+
+    - name: Configurar Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm' 
+        
+    - name: Instalar Dependencias (Final)
+      # Usamos 'npm install' para el build
+      run: npm install 
+
+    # Si tuvieras un frontend React separado que requiera "npm run build"
+    # Este paso podría ser: - run: npm run build
+    - name: Verificación de Build (No aplica para Node.js puro)
+      run: echo "Build y verificación de dependencias completada."
+
+  # Job 3: Despliegue (Depende del éxito del Build)
+  deploy:
+    name: Despliegue a Render
+    needs: build # Solo se ejecuta si el job 'build' es exitoso
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Despliegue Vía Render (Configuración Recomendada)
+      # Render prefiere la conexión directa al repositorio para Node.js.
+      # Este paso es un placeholder para confirmar el flujo de CI/CD.
+      run: echo "Render se encargará del despliegue automático al detectar cambios en la rama main."
+      
+    # Si quisieras un despliegue por API Key, usarías algo como esto:
+    # - name: Deploy a Render (Opcional)
+    #   uses: johnnyopao/render-deploy-action@v1.0.0
+    #   with:
+    #     service-id: ${{ secrets.RENDER_SERVICE_ID }}
+    #     api-key: ${{ secrets.RENDER_API_KEY }}
