@@ -1,19 +1,31 @@
 {
   "name": "yoga-pilates-api",
   "version": "1.0.0",
-  "description": "API REST para gestión de reservas de clases de Yoga/Pilates.",
+  "description": "API RESTful para gestión de horarios y reservas de clases de Yoga/Pilates.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "jest"
+    "test": "jest",
+    "build": "echo 'No build step required for Node.js API'"
   },
+  "keywords": [
+    "node",
+    "express",
+    "yoga",
+    "pilates",
+    "sqlite"
+  ],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.18.2",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
     "jest": "^29.7.0",
-    "supertest": "^6.3.3"
+    "supertest": "^6.3.4"
   }
 }
