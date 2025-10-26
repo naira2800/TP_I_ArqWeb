@@ -151,7 +151,7 @@ app.get('/api/clases', async (req, res) => {
         hc.hora,
         hc.clase,
         hc.capacidad,
-        COUNT(ac.alumno_id) AS inscriptos
+        COALESCE(COUNT(ac.alumno_id), 0) AS inscriptos
       FROM
         horario_clases hc
       LEFT JOIN
@@ -353,7 +353,7 @@ app.get('/api/reporte/detalle', async (req, res) => {
         hc.hora,
         hc.clase,
         hc.capacidad,
-        COUNT(ac.alumno_id) AS inscriptos
+        COALESCE(COUNT(ac.alumno_id), 0) AS inscriptos
       FROM
         horario_clases hc
       LEFT JOIN
@@ -416,3 +416,4 @@ async function startServer() {
 
 startServer();
 module.exports = app; // Exportar app para el testing
+
