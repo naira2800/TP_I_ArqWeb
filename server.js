@@ -72,8 +72,7 @@ CREATE TABLE horario_clases (
   id_clase INTEGER PRIMARY KEY AUTOINCREMENT,
   dia TEXT,
   hora TEXT,
-  clase TEXT,
-  cantAlumnos INTEGER DEFAULT 0 -- Esta columna se recalculará
+  clase TEXT
 );
 
 -- Records of horario_clases (Nota: La columna cantAlumnos será actualizada por updateClasesCount)
@@ -412,3 +411,4 @@ async function startServer() {
 }
 
 startServer();
+
