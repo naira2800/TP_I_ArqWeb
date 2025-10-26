@@ -1,435 +1,418 @@
-// Importaciones de librerías esenciales
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const sqlite = require('sqlite');
+const { open } = require('sqlite');
 const sqlite3 = require('sqlite3');
 const { v4: uuidv4 } = require('uuid');
 
 // --- Configuración Inicial ---
 const app = express();
 const PORT = 3000;
-const DB_PATH = 'yoga.db'; // Nombre del archivo de la base de datos SQLite
+const DB_PATH = path.join(__dirname, 'yoga.db');
+const CAPACIDAD_MAXIMA = 6;
 
-// Usar middlewares
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Base de datos
-let db;
-
-// Esquema SQL con datos iniciales (NO DEPENDE DE UN ARCHIVO EXTERNO)
+// --- ESQUEMA SQL INICIAL (Autocontenido) ---
 const INITIAL_SQL_SCHEMA = `
--- Creación de tablas
-CREATE TABLE alumnos (
-  id_alumno TEXT PRIMARY KEY,
-  nombres TEXT NOT NULL,
-  apellidos TEXT NOT NULL,
-  dni TEXT UNIQUE NOT NULL,
-  email TEXT,
-  telefono TEXT
-);
+  -- Eliminar tablas si existen para garantizar un estado limpio en la inicialización
+  DROP TABLE IF EXISTS alumnos_clases;
+  DROP TABLE IF EXISTS alumnos;
+  DROP TABLE IF EXISTS horario_clases;
 
-CREATE TABLE horario_clases (
-  id_clase INTEGER PRIMARY KEY,
-  dia TEXT,
-  hora TEXT,
-  clase TEXT,
-  capacidad INTEGER DEFAULT 6
-);
+  -- Crear tabla de alumnos
+  CREATE TABLE alumnos (
+    id_alumno INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombres TEXT NOT NULL,
+    apellidos TEXT NOT NULL,
+    dni TEXT UNIQUE NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    telefono TEXT
+  );
 
-CREATE TABLE alumnos_clases (
-  alumno_id TEXT,
-  clase_id INTEGER,
-  PRIMARY KEY (alumno_id, clase_id),
-  FOREIGN KEY (alumno_id) REFERENCES alumnos(id_alumno) ON DELETE CASCADE,
-  FOREIGN KEY (clase_id) REFERENCES horario_clases(id_clase) ON DELETE CASCADE
-);
+  -- Crear tabla de horario de clases
+  CREATE TABLE horario_clases (
+    id_clase INTEGER PRIMARY KEY AUTOINCREMENT,
+    dia TEXT NOT NULL,
+    hora TIME NOT NULL,
+    clase TEXT NOT NULL,
+    capacidad INTEGER NOT NULL DEFAULT ${CAPACIDAD_MAXIMA}
+  );
 
--- Inserción de 30 alumnos (ajustado a 5 columnas para evitar error)
-INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES ('a1', 'Leandro', 'Pérez', '11678443', 'leandro.perez@icloud.com', '54');
-INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES ('a2', 'Daiana', 'Martínez', '55412533', 'daiana.martinez@icloud.com', '54');
-INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES ('a3', 'María', 'Díaz', '24672546', 'maria.diaz@outlook.com', '54');
-INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES ('a4', 'Micaela', 'Ramos', '49544950', 'micaela.ramos@yahoo.com', '54');
-INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES ('a5', 'Carolina', 'Ruiz', '20434052', 'carolina.ruiz@outlook.com', '54');
-INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES ('a6', 'Gonzalo', 'Martínez', '34090698', 'gonzalo.martinez@yahoo.com', '54');
+  -- Crear tabla de relación N:M
+  CREATE TABLE alumnos_clases (
+    alumno_id INTEGER,
+    clase_id INTEGER,
+    PRIMARY KEY (alumno_id, clase_id),
+    FOREIGN KEY (alumno_id) REFERENCES alumnos(id_alumno) ON DELETE CASCADE,
+    FOREIGN KEY (clase_id) REFERENCES horario_clases(id_clase) ON DELETE CASCADE
+  );
 
--- Inserción de Horarios de Clases (Capacidad máxima 6 por defecto)
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (2, 'Lunes', '10:00:00', 'HATHA YOGA');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (3, 'Lunes', '17:00:00', 'HATHA YOGA');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (4, 'Lunes', '18:00:00', 'ACROYOGA');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (5, 'Lunes', '19:00:00', 'PILATES');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (6, 'Lunes', '20:00:00', 'HATHA YOGA');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (7, 'Martes', '10:00:00', 'PILATES EXTREME');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (8, 'Martes', '15:00:00', 'ASHTANGA YOGA');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (9, 'Martes', '16:00:00', 'ACROYOGA');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (10, 'Martes', '17:00:00', 'PILATES');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (11, 'Martes', '18:00:00', 'PILATES EXTREME');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (12, 'Miércoles', '10:00:00', 'HATHA YOGA');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (13, 'Miércoles', '16:00:00', 'PILATES');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (14, 'Miércoles', '18:00:00', 'ASHTANGA YOGA');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (15, 'Miércoles', '19:00:00', 'PILATES');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (16, 'Miércoles', '20:00:00', 'HATHA YOGA');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (17, 'Jueves', '09:00:00', 'ACROYOGA');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (18, 'Jueves', '10:00:00', 'PILATES EXTREME');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (19, 'Jueves', '17:00:00', 'HATHA YOGA');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (20, 'Jueves', '18:00:00', 'PILATES EXTREME');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (21, 'Viernes', '09:00:00', 'PILATES');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (22, 'Viernes', '15:00:00', 'ASHTANGA YOGA');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (23, 'Viernes', '16:00:00', 'PILATES');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (24, 'Viernes', '17:00:00', 'PILATES');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (25, 'Viernes', '18:00:00', 'ACROYOGA');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (26, 'Viernes', '19:00:00', 'PILATES');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (27, 'Viernes', '20:00:00', 'HATHA YOGA');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (28, 'Sábado', '09:00:00', 'YOGA+MEDITACIÓN');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (29, 'Sábado', '10:00:00', 'ACROYOGA');
-INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (30, 'Sábado', '11:00:00', 'PILATES');
+  -- Inserción de datos iniciales para la tabla alumnos (5 columnas)
+  INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES ('Leandro', 'Pérez', '11678443', 'leandro.perez@icloud.com', '54');
+  INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES ('Daiana', 'Martínez', '55412533', 'daiana.martinez@icloud.com', '54');
+  INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES ('María', 'Díaz', '24672546', 'maria.diaz@outlook.com', '54');
+  INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES ('Micaela', 'Ramos', '49544950', 'micaela.ramos@yahoo.com', '54');
 
--- Inserción de inscripciones iniciales
-INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES ('a1', 10);
-INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES ('a1', 24);
-INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES ('a2', 2);
-INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES ('a2', 12);
-INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES ('a3', 10);
-INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES ('a4', 2);
+  -- Inserción de datos iniciales para la tabla de clases
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('lunes', '10:00:00', 'HATHA YOGA');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('lunes', '17:00:00', 'HATHA YOGA');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('lunes', '18:00:00', 'ACROYOGA');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('lunes', '19:00:00', 'PILATES');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('lunes', '20:00:00', 'HATHA YOGA');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('martes', '10:00:00', 'PILATES EXTREME');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('martes', '15:00:00', 'ASHTANGA YOGA');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('martes', '16:00:00', 'ACROYOGA');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('martes', '17:00:00', 'PILATES');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('martes', '18:00:00', 'PILATES EXTREME');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('miércoles', '10:00:00', 'HATHA YOGA');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('miércoles', '16:00:00', 'PILATES');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('miércoles', '18:00:00', 'ASHTANGA YOGA');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('miércoles', '19:00:00', 'PILATES');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('miércoles', '20:00:00', 'HATHA YOGA');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('jueves', '09:00:00', 'ACROYOGA');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('jueves', '10:00:00', 'PILATES EXTREME');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('jueves', '17:00:00', 'HATHA YOGA');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('jueves', '18:00:00', 'PILATES EXTREME');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('viernes', '09:00:00', 'PILATES');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('viernes', '15:00:00', 'ASHTANGA YOGA');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('viernes', '16:00:00', 'PILATES');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('viernes', '17:00:00', 'PILATES');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('viernes', '18:00:00', 'ACROYOGA');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('viernes', '19:00:00', 'PILATES');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('viernes', '20:00:00', 'HATHA YOGA');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('sábado', '09:00:00', 'YOGA+MEDITACIÓN');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('sábado', '10:00:00', 'ACROYOGA');
+  INSERT INTO horario_clases (dia, hora, clase) VALUES ('sábado', '11:00:00', 'PILATES');
+
+  -- Inserción de inscripciones iniciales (para tests)
+  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (1, 1);
+  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (2, 1);
+  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (3, 2);
+  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (4, 3);
 `;
 
-// --- Funciones de Base de Datos ---
+
+let db;
 
 /**
- * Inicializa la conexión a la base de datos y crea las tablas e inserta
- * los datos iniciales si no existen (Persistencia Real).
+ * Inicializa la base de datos SQLite.
+ * Si la tabla 'alumnos' no existe o está vacía, crea las tablas e inserta los datos iniciales.
  */
 async function initializeDatabase() {
-    // 1. Abrir la conexión
-    db = await sqlite.open({ filename: DB_PATH, driver: sqlite3.Database });
+  try {
+    db = await open({
+      filename: DB_PATH,
+      driver: sqlite3.Database,
+    });
+    console.log('Base de datos SQLite conectada.');
 
-    try {
-        // 2. Intentar una consulta simple para verificar si la tabla 'alumnos' ya existe y tiene datos.
-        const result = await db.get("SELECT COUNT(id_alumno) AS count FROM alumnos");
-        
-        // Si la tabla existe y tiene datos, no hacemos nada (Persistencia OK)
-        if (result && result.count > 0) {
-            console.log('Base de datos ya inicializada. Conservando datos existentes.');
-            return;
-        }
-        
-    } catch (error) {
-        // 3. Si la tabla no existe (SQLITE_ERROR) o está vacía, procedemos a inicializar.
-        // Solo capturamos el error para proceder con la inicialización.
-        console.log('Base de datos no inicializada o vacía. Creando tablas e insertando datos iniciales.');
+    // Verificar si la base de datos necesita ser inicializada
+    // Intentamos hacer un conteo en una tabla clave. Si falla, es que no existe.
+    const result = await db.get("SELECT COUNT(*) AS count FROM alumnos");
+
+    if (result.count === 0) {
+      // Las tablas existen pero están vacías o la base de datos es nueva
+      await db.exec(INITIAL_SQL_SCHEMA);
+      console.log('Base de datos inicializada y poblada con datos por defecto.');
+    } else {
+      console.log('Base de datos ya poblada. Usando datos existentes.');
     }
-
-    // 4. Ejecutar el script completo de creación e inserción de datos iniciales
-    try {
+  } catch (err) {
+    // Si la consulta inicial falla (ej: la tabla no existe), ejecutamos el esquema completo.
+    if (err.code === 'SQLITE_ERROR' && err.message.includes('no such table')) {
+      try {
         await db.exec(INITIAL_SQL_SCHEMA);
-        console.log('Base de datos inicializada con éxito.');
-    } catch (e) {
-        console.error("Error al ejecutar el esquema SQL inicial:", e);
-        // Si falla aquí, probablemente la DB está corrupta o el SQL tiene un error de sintaxis.
+        console.log('Base de datos creada, inicializada y poblada con datos por defecto.');
+      } catch (execErr) {
+        console.error('Error al ejecutar el esquema inicial de la base de datos:', execErr);
+      }
+    } else {
+      console.error('Error al inicializar/conectar la base de datos:', err);
     }
+  }
 }
 
-// --- Lógica de la API RESTful ---
+// --- Endpoints de la API RESTful ---
 
 /**
- * Endpoint 1: Obtener Grilla de Horarios con Conteo de Alumnos (Reporte)
- * Nivel RESTful: 2 (Recurso: /clases. Usa el verbo GET)
+ * GET /api/clases
+ * Obtiene la grilla de horarios con el conteo de alumnos inscritos.
+ * Nivel 2 REST: Incluye conteos dinámicos (metadata).
  */
 app.get('/api/clases', async (req, res) => {
-    // Consulta SQL avanzada para obtener la grilla y calcular los cupos por clase
-    const query = `
-        SELECT
-            hc.id_clase,
-            hc.dia,
-            hc.hora,
-            hc.clase,
-            hc.capacidad,
-            COUNT(ac.alumno_id) AS inscriptos
-        FROM
-            horario_clases hc
-        LEFT JOIN
-            alumnos_clases ac ON hc.id_clase = ac.clase_id
-        GROUP BY
-            hc.id_clase, hc.dia, hc.hora, hc.clase, hc.capacidad
-        ORDER BY
-            CASE hc.dia
-                WHEN 'Lunes' THEN 1
-                WHEN 'Martes' THEN 2
-                WHEN 'Miércoles' THEN 3
-                WHEN 'Jueves' THEN 4
-                WHEN 'Viernes' THEN 5
-                WHEN 'Sábado' THEN 6
-                ELSE 7
-            END,
-            hc.hora;
-    `;
-
-    try {
-        const clases = await db.all(query);
-        res.json(clases);
-    } catch (error) {
-        console.error("Error al obtener la grilla de clases:", error);
-        res.status(500).json({ error: 'Error al obtener la grilla de clases.' });
-    }
+  try {
+    const clases = await db.all(`
+      SELECT
+        hc.id_clase,
+        hc.dia,
+        hc.hora,
+        hc.clase,
+        hc.capacidad,
+        COUNT(ac.alumno_id) AS inscriptos
+      FROM
+        horario_clases hc
+      LEFT JOIN
+        alumnos_clases ac ON hc.id_clase = ac.clase_id
+      GROUP BY
+        hc.id_clase
+      ORDER BY
+        CASE hc.dia
+          WHEN 'lunes' THEN 1
+          WHEN 'martes' THEN 2
+          WHEN 'miércoles' THEN 3
+          WHEN 'jueves' THEN 4
+          WHEN 'viernes' THEN 5
+          WHEN 'sábado' THEN 6
+          ELSE 7
+        END,
+        hc.hora;
+    `);
+    res.json(clases);
+  } catch (error) {
+    console.error('Error al obtener clases:', error);
+    res.status(500).json({ error: 'Error interno al obtener los horarios de clases.' });
+  }
 });
 
+/**
+ * POST /api/reservar
+ * Inscribe un nuevo alumno o uno existente a una o varias clases.
+ * Implementa la lógica de cupos y la transacción de datos (ABM/CRUD: Create).
+ */
+app.post('/api/reservar', async (req, res) => {
+  const { nombres, apellidos, dni, email, telefono, clasesSeleccionadas } = req.body;
+
+  if (!nombres || !apellidos || !dni || !email || !clasesSeleccionadas || clasesSeleccionadas.length === 0) {
+    return res.status(400).json({ error: 'Faltan campos obligatorios o clases seleccionadas.' });
+  }
+
+  try {
+    let alumnoId;
+
+    // 1. Verificar si el alumno ya existe por DNI o Email
+    let existingAlumno = await db.get('SELECT id_alumno FROM alumnos WHERE dni = ? OR email = ?', [dni, email]);
+
+    if (existingAlumno) {
+      alumnoId = existingAlumno.id_alumno;
+    } else {
+      // 2. Insertar nuevo alumno si no existe
+      const result = await db.run(
+        'INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (?, ?, ?, ?, ?)',
+        [nombres, apellidos, dni, email, telefono]
+      );
+      alumnoId = result.lastID;
+    }
+
+    // 3. Verificar cupos y realizar inscripciones
+    const inscripcionesExitosas = [];
+    const clasesCompletas = [];
+    const clasesYaInscritas = [];
+
+    for (const claseId of clasesSeleccionadas) {
+      const claseInfo = await db.get(`
+        SELECT
+          hc.capacidad,
+          hc.clase,
+          hc.dia,
+          hc.hora,
+          COUNT(ac.alumno_id) AS inscriptos
+        FROM horario_clases hc
+        LEFT JOIN alumnos_clases ac ON hc.id_clase = ac.clase_id
+        WHERE hc.id_clase = ?
+        GROUP BY hc.id_clase;
+      `, [claseId]);
+
+      // Verificar si ya está inscrito
+      const yaInscrito = await db.get('SELECT 1 FROM alumnos_clases WHERE alumno_id = ? AND clase_id = ?', [alumnoId, claseId]);
+
+      if (yaInscrito) {
+        clasesYaInscritas.push(`${claseInfo.clase} (${claseInfo.dia} ${claseInfo.hora})`);
+        continue;
+      }
+
+      // Verificar cupo
+      if (claseInfo.inscriptos >= claseInfo.capacidad) {
+        clasesCompletas.push(`${claseInfo.clase} (${claseInfo.dia} ${claseInfo.hora})`);
+        continue;
+      }
+
+      // Inscribir al alumno
+      await db.run('INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (?, ?)', [alumnoId, claseId]);
+      inscripcionesExitosas.push(`${claseInfo.clase} (${claseInfo.dia} ${claseInfo.hora})`);
+    }
+
+    // 4. Generar respuesta
+    const response = {
+      message: 'Proceso de reserva completado.',
+      alumnoId: alumnoId,
+      exitosas: inscripcionesExitosas,
+      completas: clasesCompletas,
+      yaInscritas: clasesYaInscritas,
+    };
+
+    if (clasesCompletas.length > 0) {
+      // Devolver 200 OK con mensaje de advertencia
+      return res.status(200).json(response);
+    }
+
+    res.status(201).json(response);
+
+  } catch (error) {
+    console.error('Error en el proceso de reserva:', error);
+    res.status(500).json({ error: 'Error interno del servidor al procesar la reserva.' });
+  }
+});
 
 /**
- * Endpoint 2: Gestión de Alumnos (CRUD/ABM) - Obtener todos los alumnos
- * Nivel RESTful: 2 (Recurso: /alumnos. Usa el verbo GET)
- * Nota: El POST para crear alumnos se realiza en el endpoint de reserva.
+ * GET /api/alumnos
+ * Obtiene la lista completa de alumnos. (ABM/CRUD: Read)
  */
 app.get('/api/alumnos', async (req, res) => {
-    try {
-        const alumnos = await db.all('SELECT id_alumno, nombres, apellidos, dni, email, telefono FROM alumnos');
-        res.json(alumnos);
-    } catch (error) {
-        console.error("Error al obtener alumnos:", error);
-        res.status(500).json({ error: 'Error al obtener la lista de alumnos.' });
-    }
+  try {
+    const alumnos = await db.all('SELECT * FROM alumnos ORDER BY apellidos, nombres');
+    res.json(alumnos);
+  } catch (error) {
+    console.error('Error al obtener alumnos:', error);
+    res.status(500).json({ error: 'Error interno al obtener la lista de alumnos.' });
+  }
 });
 
 /**
- * Endpoint 3: Gestión de Alumnos (CRUD/ABM) - Eliminar Alumno
- * Nivel RESTful: 2 (Recurso: /alumnos/:id. Usa el verbo DELETE)
- */
-app.delete('/api/alumnos/:id', async (req, res) => {
-    const { id } = req.params;
-    try {
-        // SQLite maneja la eliminación en cascada (DELETE CASCADE)
-        // por lo que las inscripciones en alumnos_clases se eliminarán automáticamente.
-        await db.run('DELETE FROM alumnos WHERE id_alumno = ?', id);
-        
-        // El frontend necesita re-validar la lista de alumnos.
-        res.status(200).json({ message: 'Alumno y sus inscripciones eliminados con éxito.' });
-    } catch (error) {
-        console.error("Error al eliminar alumno:", error);
-        res.status(500).json({ error: 'Error al eliminar el alumno.' });
-    }
-});
-
-/**
- * Endpoint 4: Gestión de Alumnos (CRUD/ABM) - Actualizar Alumno
- * Nivel RESTful: 2 (Recurso: /alumnos/:id. Usa el verbo PUT)
+ * PUT /api/alumnos/:id
+ * Actualiza los datos de un alumno. (ABM/CRUD: Update)
  */
 app.put('/api/alumnos/:id', async (req, res) => {
-    const { id } = req.params;
-    const { nombres, apellidos, dni, email, telefono } = req.body;
-    
-    // Validación básica
-    if (!nombres || !apellidos || !dni) {
-        return res.status(400).json({ error: 'Faltan campos obligatorios (nombres, apellidos, dni).' });
+  const { id } = req.params;
+  const { nombres, apellidos, dni, email, telefono } = req.body;
+
+  if (!nombres || !apellidos || !dni || !email) {
+    return res.status(400).json({ error: 'Faltan campos obligatorios para la actualización.' });
+  }
+
+  try {
+    const result = await db.run(
+      'UPDATE alumnos SET nombres = ?, apellidos = ?, dni = ?, email = ?, telefono = ? WHERE id_alumno = ?',
+      [nombres, apellidos, dni, email, telefono, id]
+    );
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Alumno no encontrado o sin cambios.' });
     }
 
-    try {
-        await db.run(
-            'UPDATE alumnos SET nombres = ?, apellidos = ?, dni = ?, email = ?, telefono = ? WHERE id_alumno = ?',
-            nombres, apellidos, dni, email, telefono, id
-        );
-        res.status(200).json({ message: 'Alumno actualizado con éxito.' });
-    } catch (error) {
-        console.error("Error al actualizar alumno:", error);
-        // Manejar error de DNI duplicado
-        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-            return res.status(409).json({ error: 'El DNI ingresado ya está registrado por otro alumno.' });
-        }
-        res.status(500).json({ error: 'Error al actualizar el alumno.' });
-    }
+    res.json({ message: 'Alumno actualizado exitosamente.' });
+
+  } catch (error) {
+    console.error('Error al actualizar alumno:', error);
+    res.status(500).json({ error: 'Error interno del servidor al actualizar el alumno.' });
+  }
 });
 
-
 /**
- * Endpoint 5: Reserva de Clases (Inscripción) y Creación de Alumno (ABM)
- * Nivel RESTful: 2 (Recurso: /reservas. Usa el verbo POST)
- * Lógica compleja: Valida cupos y realiza dos inserciones (alumnos y alumnos_clases).
+ * DELETE /api/alumnos/:id
+ * Elimina un alumno y todas sus inscripciones asociadas (debido a CASCADE). (ABM/CRUD: Delete)
+ * RESTRICCIÓN DE SEGURIDAD: Requiere el header Authorization.
  */
-app.post('/api/reservas', async (req, res) => {
-    const { nombres, apellidos, dni, email, telefono, clases_ids } = req.body;
-    
-    // 1. Validación de Datos
-    if (!nombres || !apellidos || !dni || !Array.isArray(clases_ids) || clases_ids.length === 0) {
-        return res.status(400).json({ error: 'Faltan datos de alumno o clases a inscribir.' });
+app.delete('/api/alumnos/:id', async (req, res) => {
+  // RESTRICCIÓN DE SEGURIDAD: Verificar autenticación simulada
+  const authHeader = req.headers.authorization;
+  if (!authHeader || authHeader !== 'ADMIN_TOKEN_SECRETO') {
+    return res.status(401).json({ error: 'Acceso no autorizado. Se requiere autenticación para eliminar alumnos.' });
+  }
+
+  const { id } = req.params;
+
+  try {
+    const result = await db.run('DELETE FROM alumnos WHERE id_alumno = ?', [id]);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Alumno no encontrado.' });
     }
 
-    try {
-        let alumnoId;
+    res.json({ message: 'Alumno eliminado exitosamente (incluidas sus reservas).' });
 
-        // Iniciar transacción para asegurar atomicidad de la inscripción
-        await db.run('BEGIN TRANSACTION');
-        
-        // A) Buscar o crear alumno
-        
-        // 1. Buscar alumno por DNI (asumiendo que DNI es la clave de negocio)
-        let alumnoExistente = await db.get('SELECT id_alumno FROM alumnos WHERE dni = ?', dni);
-
-        if (alumnoExistente) {
-            // Si existe, usamos su ID
-            alumnoId = alumnoExistente.id_alumno;
-            // Opcional: Actualizar datos del alumno existente
-            await db.run(
-                'UPDATE alumnos SET nombres = ?, apellidos = ?, email = ?, telefono = ? WHERE id_alumno = ?',
-                nombres, apellidos, email, telefono, alumnoId
-            );
-        } else {
-            // 2. Si NO existe, creamos un nuevo alumno (ABM - C)
-            alumnoId = uuidv4(); // Generamos un ID único (TEXT)
-            await db.run(
-                'INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (?, ?, ?, ?, ?, ?)',
-                alumnoId, nombres, apellidos, dni, email, telefono
-            );
-        }
-
-        // B) Validar e inscribir clases
-
-        const erroresInscripcion = [];
-        
-        for (const claseId of clases_ids) {
-            // 3. Verificar si el alumno ya está inscrito en esta clase
-            const yaInscrito = await db.get('SELECT 1 FROM alumnos_clases WHERE alumno_id = ? AND clase_id = ?', alumnoId, claseId);
-            if (yaInscrito) {
-                erroresInscripcion.push({ claseId, mensaje: 'Ya está inscrito.' });
-                continue;
-            }
-
-            // 4. Verificar cupo (SELECT COUNT)
-            const cupoQuery = `
-                SELECT
-                    hc.capacidad,
-                    COUNT(ac.alumno_id) AS inscriptos
-                FROM
-                    horario_clases hc
-                LEFT JOIN
-                    alumnos_clases ac ON hc.id_clase = ac.clase_id
-                WHERE
-                    hc.id_clase = ?
-                GROUP BY
-                    hc.id_clase;
-            `;
-            const cupoData = await db.get(cupoQuery, claseId);
-
-            if (!cupoData) {
-                 erroresInscripcion.push({ claseId, mensaje: 'Clase no encontrada.' });
-                continue;
-            }
-
-            const { capacidad, inscriptos } = cupoData;
-            
-            // Lógica principal: si inscriptos es 6 o más, la clase está completa
-            if (inscriptos >= capacidad) {
-                // Agregar error para notificar al frontend
-                erroresInscripcion.push({ claseId, mensaje: 'Clase Completa (Max: 6).' });
-                continue; // No inscribir
-            }
-
-            // 5. Inscribir (si hay cupo)
-            await db.run('INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (?, ?)', alumnoId, claseId);
-        }
-
-        // 6. Confirmar la transacción
-        await db.run('COMMIT');
-
-        // Respuesta final
-        if (erroresInscripcion.length === 0) {
-            res.status(201).json({ message: 'Inscripción(es) realizada(s) con éxito.', alumnoId: alumnoId });
-        } else {
-            // Devolver estado 202 (Accepted but Partial Content) o 409 (Conflict)
-            // Se usa 200/201 para éxito parcial
-            res.status(200).json({ 
-                message: 'Inscripción(es) procesada(s) con advertencias.', 
-                alumnoId: alumnoId,
-                advertencias: erroresInscripcion 
-            });
-        }
-
-    } catch (error) {
-        // 7. Revertir la transacción si algo falla
-        await db.run('ROLLBACK');
-        console.error("Error en la reserva/inscripción:", error);
-        
-        // Manejo de error específico de DNI duplicado si la inserción original falló
-        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-            return res.status(409).json({ error: 'El DNI ingresado ya está registrado.' });
-        }
-        
-        res.status(500).json({ error: 'Error interno del servidor al procesar la reserva.' });
-    }
+  } catch (error) {
+    console.error('Error al eliminar alumno:', error);
+    res.status(500).json({ error: 'Error interno del servidor al eliminar el alumno.' });
+  }
 });
 
-
 /**
- * Endpoint 6: Reporte Detallado de Clases de un Alumno
- * Nivel RESTful: 2 (Recurso: /alumnos/:id/clases. Usa el verbo GET)
+ * GET /api/reporte/detalle
+ * Nuevo endpoint para obtener la data del reporte PDF: clases con sus alumnos.
  */
-app.get('/api/alumnos/:id/clases', async (req, res) => {
-    const { id } = req.params;
-    
-    // Consulta para obtener los detalles de las clases a las que está inscrito el alumno
-    const query = `
-        SELECT 
-            hc.dia,
-            hc.hora,
-            hc.clase,
-            hc.id_clase
+app.get('/api/reporte/detalle', async (req, res) => {
+  try {
+    // 1. Obtener todas las clases con el conteo de alumnos
+    const clases = await db.all(`
+      SELECT
+        hc.id_clase,
+        hc.dia,
+        hc.hora,
+        hc.clase,
+        hc.capacidad,
+        COUNT(ac.alumno_id) AS inscriptos
+      FROM
+        horario_clases hc
+      LEFT JOIN
+        alumnos_clases ac ON hc.id_clase = ac.clase_id
+      GROUP BY
+        hc.id_clase
+      ORDER BY
+        hc.dia, hc.hora;
+    `);
+
+    // 2. Para cada clase, obtener la lista de alumnos inscritos
+    for (const clase of clases) {
+      const alumnos = await db.all(`
+        SELECT
+          a.id_alumno,
+          a.nombres,
+          a.apellidos,
+          a.dni
         FROM
-            alumnos_clases ac
+          alumnos a
         JOIN
-            horario_clases hc ON ac.clase_id = hc.id_clase
+          alumnos_clases ac ON a.id_alumno = ac.alumno_id
         WHERE
-            ac.alumno_id = ?
+          ac.clase_id = ?
         ORDER BY
-            CASE hc.dia
-                WHEN 'Lunes' THEN 1
-                WHEN 'Martes' THEN 2
-                WHEN 'Miércoles' THEN 3
-                WHEN 'Jueves' THEN 4
-                WHEN 'Viernes' THEN 5
-                WHEN 'Sábado' THEN 6
-                ELSE 7
-            END,
-            hc.hora;
-    `;
-    
-    try {
-        const clasesInscritas = await db.all(query, id);
-        res.json(clasesInscritas);
-    } catch (error) {
-        console.error("Error al obtener clases del alumno:", error);
-        res.status(500).json({ error: 'Error al obtener las clases inscritas del alumno.' });
+          a.apellidos, a.nombres;
+      `, [clase.id_clase]);
+      clase.alumnos_inscritos = alumnos;
     }
+
+    res.json(clases);
+  } catch (error) {
+    console.error('Error al generar el reporte de detalle:', error);
+    res.status(500).json({ error: 'Error interno al generar el reporte de detalle.' });
+  }
 });
 
 
 // --- Servir el Frontend (index.html) ---
-
-// Intentar servir el frontend estático. Debe llamarse index.html
-// IMPORTANTE: Asegúrate de que tu archivo frontend se llama 'index.html'
+// Esta debe ser la última ruta para actuar como fallback
 app.get('*', (req, res) => {
-    // Si la solicitud no es para un endpoint de la API, servimos el archivo HTML principal.
-    if (req.originalUrl.startsWith('/api')) {
-        return res.status(404).json({ error: 'Ruta de API no encontrada.' });
+  // Aseguramos que el servidor sirva el index.html en la ruta raíz
+  const filePath = path.join(__dirname, 'index.html');
+  res.sendFile(filePath, (err) => {
+    if (err) {
+      console.error("Error al servir el index.html:", err);
+      res.status(500).send('Error al cargar la aplicación frontend.');
     }
-    
-    const filePath = path.join(__dirname, 'index.html');
-    
-    res.sendFile(filePath, (err) => {
-        if (err) {
-            console.error("Error al servir index.html:", err.message);
-            res.status(500).send('Error al cargar la aplicación (index.html no encontrado o error en el servidor).');
-        }
-    });
+  });
 });
 
+// --- Inicio del Servidor ---
+async function startServer() {
+  await initializeDatabase();
+  app.listen(PORT, () => {
+    console.log(`Servidor API escuchando en http://localhost:${PORT}`);
+    console.log(`Frontend disponible en http://localhost:${PORT}/`);
+  });
+}
 
-// --- Inicialización y Arranque del Servidor ---
-
-initializeDatabase().then(() => {
-    console.log('Base de datos SQLite conectada.');
-    app.listen(PORT, () => {
-        console.log(`Servidor API escuchando en http://localhost:${PORT}`);
-        console.log(`Frontend disponible en http://localhost:${PORT}/`);
-    });
-}).catch((err) => {
-    console.error("Error fatal al inicializar la base de datos:", err);
-    process.exit(1);
-});
+startServer();
+module.exports = app; // Exportar app para el testing
