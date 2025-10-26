@@ -1,276 +1,414 @@
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
 const path = require('path');
+const sqlite = require('sqlite');
+const sqlite3 = require('sqlite3');
 const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const PORT = 3000;
-const MAX_ALUMNOS = 6; // Constante del negocio
+const DB_PATH = path.join(__dirname, 'yoga.db');
+// Eliminamos la dependencia de SQL_SCHEMA_PATH
 
+const MAX_ALUMNOS = 6;
+
+let db;
+
+// Esquema y datos SQL para la inicialización (Anteriormente en yoga.sql)
+const INITIAL_SQL_SCHEMA = `
+-- Habilita la integridad referencial para ON DELETE CASCADE
+PRAGMA foreign_keys = ON; 
+
+-- Eliminar tablas si existen para inicializar siempre desde cero
+DROP TABLE IF EXISTS alumnos_clases;
+DROP TABLE IF EXISTS alumnos;
+DROP TABLE IF EXISTS horario_clases;
+
+-- Table structure for alumnos
+CREATE TABLE alumnos (
+  id_alumno INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombres TEXT,
+  apellidos TEXT,
+  dni TEXT UNIQUE, -- DNI debe ser único
+  email TEXT,
+  telefono TEXT
+);
+
+-- Records of alumnos
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (1, 'Leandro', 'Pérez', '11678443', 'leandro.perez@icloud.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (2, 'Daiana', 'Martínez', '55412533', 'daiana.martinez@icloud.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (3, 'María', 'Díaz', '24672546', 'maria.diaz@outlook.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (4, 'Micaela', 'Ramos', '49544950', 'micaela.ramos@yahoo.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (5, 'Carolina', 'Ruiz', '20434052', 'carolina.ruiz@outlook.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (6, 'Gonzalo', 'Martínez', '34090698', 'gonzalo.martinez@yahoo.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (7, 'Tomás', 'Pérez', '35403012', 'tomas.perez@gmail.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (8, 'Hernán', 'López', '13075222', 'hernan.lopez@icloud.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (9, 'Sofía', 'Benítez', '28654492', 'sofia.benitez@hotmail.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (10, 'Bruno', 'Gutiérrez', '54974694', 'bruno.gutierrez@yahoo.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (11, 'Camila', 'Suárez', '35464823', 'camila.suarez@yahoo.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (12, 'Micaela', 'Gómez', '31169695', 'micaela.gomez@hotmail.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (13, 'Santiago', 'Ponce', '43502842', 'santiago.ponce@hotmail.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (14, 'Valentina', 'Silva', '59995364', 'valentina.silva@live.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (15, 'Lautaro', 'Pereyra', '19283286', 'lautaro.pereyra@live.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (16, 'Diego', 'Méndez', '20736210', 'diego.mendez@icloud.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (17, 'Rocío', 'Suárez', '45508262', 'rocio.suarez@yahoo.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (18, 'Milagros', 'Ponce', '32828789', 'milagros.ponce@gmail.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (19, 'Juan', 'Barrera', '58296952', 'juan.barrera@yahoo.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (20, 'Leandro', 'Muñoz', '52879174', 'leandro.munoz@live.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (21, 'Esteban', 'Torres', '46197113', 'esteban.torres@live.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (22, 'Jorge', 'Vega', '30636923', 'jorge.vega@outlook.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (23, 'Sol', 'Ferreyra', '14644773', 'sol.ferreyra@live.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (24, 'Morena', 'Torres', '27787649', 'morena.torres@live.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (25, 'Hernán', 'Muñoz', '36775919', 'hernan.munoz@icloud.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (26, 'Jorge', 'Silva', '25079183', 'jorge.silva@gmail.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (27, 'Juan', 'López', '57502401', 'juan.lopez@icloud.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (28, 'Carolina', 'López', '44504433', 'carolina.lopez@outlook.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (29, 'Sol', 'Figueroa', '48668909', 'sol.figueroa@hotmail.com', '54');
+INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (30, 'Sofía', 'Martínez', '54223583', 'sofia.martinez@hotmail.com', '54');
+
+-- Table structure for horario_clases
+CREATE TABLE horario_clases (
+  id_clase INTEGER PRIMARY KEY AUTOINCREMENT,
+  dia TEXT,
+  hora TEXT,
+  clase TEXT,
+  cantAlumnos INTEGER DEFAULT 0 -- Esta columna se recalculará
+);
+
+-- Records of horario_clases (Nota: La columna cantAlumnos será actualizada por updateClasesCount)
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (2, 'lunes', '10:00:00', 'HATHA YOGA');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (3, 'lunes', '17:00:00', 'HATHA YOGA');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (4, 'lunes', '18:00:00', 'ACROYOGA');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (5, 'lunes', '19:00:00', 'PILATES');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (6, 'lunes', '20:00:00', 'HATHA YOGA');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (7, 'martes', '10:00:00', 'PILATES EXTREME');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (8, 'martes', '15:00:00', 'ASHTANGA YOGA');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (9, 'martes', '16:00:00', 'ACROYOGA');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (10, 'martes', '17:00:00', 'PILATES');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (11, 'martes', '18:00:00', 'PILATES EXTREME');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (12, 'miércoles', '10:00:00', 'HATHA YOGA');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (13, 'miércoles', '16:00:00', 'PILATES');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (14, 'miércoles', '18:00:00', 'ASHTANGA YOGA');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (15, 'miércoles', '19:00:00', 'PILATES');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (16, 'miércoles', '20:00:00', 'HATHA YOGA');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (17, 'jueves', '09:00:00', 'ACROYOGA');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (18, 'jueves', '10:00:00', 'PILATES EXTREME');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (19, 'jueves', '17:00:00', 'HATHA YOGA');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (20, 'jueves', '18:00:00', 'PILATES EXTREME');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (21, 'viernes', '09:00:00', 'PILATES');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (22, 'viernes', '15:00:00', 'ASHTANGA YOGA');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (23, 'viernes', '16:00:00', 'PILATES');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (24, 'viernes', '17:00:00', 'PILATES');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (25, 'viernes', '18:00:00', 'ACROYOGA');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (26, 'viernes', '19:00:00', 'PILATES');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (27, 'viernes', '20:00:00', 'HATHA YOGA');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (28, 'sábado ', '09:00:00', 'YOGA+MEDITACIÓN');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (29, 'sábado ', '10:00:00', 'ACROYOGA');
+INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (30, 'sábado ', '11:00:00', 'PILATES');
+
+-- Table structure for alumnos_clases (Tabla N:M)
+CREATE TABLE alumnos_clases (
+  alumno_id INTEGER,
+  clase_id INTEGER,
+  PRIMARY KEY (alumno_id, clase_id),
+  FOREIGN KEY (alumno_id) REFERENCES alumnos(id_alumno) ON DELETE CASCADE ON UPDATE CASCADE,
+  FOREIGN KEY (clase_id) REFERENCES horario_clases(id_clase) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- Records of alumnos_clases
+INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (1, 10);
+INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (1, 24);
+INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (2, 2);
+INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (2, 12);
+`;
+
+// Configuración de Express y Middleware
 app.use(cors());
 app.use(express.json());
 
-// --- Inicialización de Datos en Memoria (Simulando DB) ---
-// Datos basados en yoga.sql
+// Función para inicializar la base de datos
+async function initializeDatabase() {
+    try {
+        db = await sqlite.open({
+            filename: DB_PATH,
+            driver: sqlite3.Database
+        });
 
-let alumnos = [
-    { id: '1', nombres: 'Leandro', apellidos: 'Pérez', dni: '11678443', email: 'leandro.perez@icloud.com', telefono: '54' },
-    { id: '2', nombres: 'Daiana', apellidos: 'Martínez', dni: '55412533', email: 'daiana.martinez@icloud.com', telefono: '54' },
-    { id: '3', nombres: 'María', apellidos: 'Díaz', dni: '24672546', email: 'maria.diaz@outlook.com', telefono: '54' },
-    // ... (El resto de los 30 alumnos iniciales se omiten aquí por brevedad, pero se simulan sus inscripciones abajo)
-];
+        console.log('Base de datos SQLite conectada.');
 
-let clases = [
-    { id: '2', dia: 'lunes', hora: '10:00:00', clase: 'HATHA YOGA', cantAlumnos: 4 },
-    { id: '3', dia: 'lunes', hora: '17:00:00', clase: 'HATHA YOGA', cantAlumnos: 5 },
-    { id: '4', dia: 'lunes', hora: '18:00:00', clase: 'ACROYOGA', cantAlumnos: 2 },
-    { id: '5', dia: 'lunes', hora: '19:00:00', clase: 'PILATES', cantAlumnos: 1 },
-    { id: '6', dia: 'lunes', hora: '20:00:00', clase: 'HATHA YOGA', cantAlumnos: 0 },
-    { id: '7', dia: 'martes', hora: '10:00:00', clase: 'PILATES EXTREME', cantAlumnos: 0 },
-    { id: '8', dia: 'martes', hora: '15:00:00', clase: 'ASHTANGA YOGA', cantAlumnos: 2 },
-    { id: '9', dia: 'martes', hora: '16:00:00', clase: 'ACROYOGA', cantAlumnos: 0 },
-    { id: '10', dia: 'martes', hora: '17:00:00', clase: 'PILATES', cantAlumnos: 0 },
-    { id: '11', dia: 'martes', hora: '18:00:00', clase: 'PILATES EXTREME', cantAlumnos: 0 },
-    { id: '12', dia: 'miércoles', hora: '10:00:00', clase: 'HATHA YOGA', cantAlumnos: 0 },
-    { id: '13', dia: 'miércoles', hora: '16:00:00', clase: 'PILATES', cantAlumnos: 0 },
-    { id: '14', dia: 'miércoles', hora: '18:00:00', clase: 'ASHTANGA YOGA', cantAlumnos: 0 },
-    { id: '15', dia: 'miércoles', hora: '19:00:00', clase: 'PILATES', cantAlumnos: 0 },
-    { id: '16', dia: 'miércoles', hora: '20:00:00', clase: 'HATHA YOGA', cantAlumnos: 0 },
-    { id: '17', dia: 'jueves', hora: '09:00:00', clase: 'ACROYOGA', cantAlumnos: 0 },
-    { id: '18', dia: 'jueves', hora: '10:00:00', clase: 'PILATES EXTREME', cantAlumnos: 0 },
-    { id: '19', dia: 'jueves', hora: '17:00:00', clase: 'HATHA YOGA', cantAlumnos: 0 },
-    { id: '20', dia: 'jueves', hora: '18:00:00', clase: 'PILATES EXTREME', cantAlumnos: 0 },
-    { id: '21', dia: 'viernes', hora: '09:00:00', clase: 'PILATES', cantAlumnos: 0 },
-    { id: '22', dia: 'viernes', hora: '15:00:00', clase: 'ASHTANGA YOGA', cantAlumnos: 0 },
-    { id: '23', dia: 'viernes', hora: '16:00:00', clase: 'PILATES', cantAlumnos: 0 },
-    { id: '24', dia: 'viernes', hora: '17:00:00', clase: 'PILATES', cantAlumnos: 0 },
-    { id: '25', dia: 'viernes', hora: '18:00:00', clase: 'ACROYOGA', cantAlumnos: 0 },
-    { id: '26', dia: 'viernes', hora: '19:00:00', clase: 'PILATES', cantAlumnos: 0 },
-    { id: '27', dia: 'viernes', hora: '20:00:00', clase: 'HATHA YOGA', cantAlumnos: 0 },
-    { id: '28', dia: 'sábado ', hora: '09:00:00', clase: 'YOGA+MEDITACIÓN', cantAlumnos: 0 },
-    { id: '29', dia: 'sábado ', hora: '10:00:00', clase: 'ACROYOGA', cantAlumnos: 0 },
-    { id: '30', dia: 'sábado ', hora: '11:00:00', clase: 'PILATES', cantAlumnos: 0 }
-];
-// Esta simulación es esencial: la tabla `alumnos_clases` define quién está en qué clase.
-// Usamos un objeto para un acceso rápido: { clase_id: [alumno_id, ...], ... }
-let alumnosClases = {
-    '2': ['2', '3', '4', '5'], // HATHA YOGA (Lunes 10:00), 4 alumnos
-    '3': ['6', '7', '8', '9', '10'], // HATHA YOGA (Lunes 17:00), 5 alumnos
-    '4': ['11', '12'], // ACROYOGA (Lunes 18:00), 2 alumnos
-    '5': ['13'], // PILATES (Lunes 19:00), 1 alumno
-    '8': ['14', '15'], // ASHTANGA YOGA (Martes 15:00), 2 alumnos
-    // Clases completas para pruebas:
-    '31': ['A', 'B', 'C', 'D', 'E', 'F'] // Clase ficticia completa para demostración
-};
+        // Ejecutar el esquema incrustado
+        const statements = INITIAL_SQL_SCHEMA.split(';').filter(s => s.trim().length > 0);
 
-// Se asegura que `alumnosClases` tenga la cuenta real para la lógica.
-function updateClasesCount() {
-    clases.forEach(clase => {
-        clase.cantAlumnos = alumnosClases[clase.id] ? alumnosClases[clase.id].length : 0;
-        clase.cupoCompleto = clase.cantAlumnos >= MAX_ALUMNOS;
-    });
-}
-updateClasesCount();
+        // Ejecutar las sentencias una por una
+        for (const statement of statements) {
+            await db.exec(statement);
+        }
 
-// --- Rutas de la API (Nivel 2 RESTful) ---
+        console.log('Base de datos inicializada con esquema y datos internos.');
+        
+        // Ejecutar un update para calcular la columna cantAlumnos con datos reales
+        await updateClasesCount();
 
-// 1. OBTENER HORARIO Y ESTADO DE CUPOS (Listar clases)
-app.get('/api/clases', (req, res) => {
-    updateClasesCount(); // Asegura que el conteo esté actualizado
-    res.json(clases.map(c => ({
-        id: c.id,
-        dia: c.dia,
-        hora: c.hora,
-        clase: c.clase,
-        cantAlumnos: c.cantAlumnos,
-        cupoCompleto: c.cupoCompleto,
-        cuposDisponibles: MAX_ALUMNOS - c.cantAlumnos
-    })));
-});
-
-// 2. OBTENER DETALLE DE UNA CLASE (Incluye alumnos inscritos)
-app.get('/api/clases/:id', (req, res) => {
-    const id = req.params.id;
-    const clase = clases.find(c => c.id === id);
-    if (!clase) {
-        return res.status(404).json({ error: 'Clase no encontrada' });
+    } catch (error) {
+        console.error('Error al inicializar la base de datos:', error);
+        process.exit(1);
     }
+}
 
-    const inscritosIds = alumnosClases[id] || [];
-    const inscritos = alumnos.filter(a => inscritosIds.includes(a.id));
+// Función auxiliar para actualizar los conteos de alumnos en horario_clases
+async function updateClasesCount() {
+    // Para SQLite, necesitamos actualizar cada fila individualmente o recrear una tabla temporalmente.
+    // Lo más simple es usar la subconsulta con UPDATE, que SQLite soporta.
+    await db.run(`
+        UPDATE horario_clases
+        SET cantAlumnos = (
+            SELECT COUNT(clase_id)
+            FROM alumnos_clases
+            WHERE clase_id = horario_clases.id_clase
+        );
+    `);
+    console.log('Conteo de alumnos por clase actualizado.');
+}
 
-    res.json({
-        ...clase,
-        alumnosInscritos: inscritos
-    });
+// --- ENDPOINTS DE LA API RESTFUL ---
+
+// Ruta 0: Servir el frontend (index.html) como fallback para SPA
+app.get('/', (req, res) => {
+    const htmlPath = path.join(__dirname, 'index.html');
+    if (fs.existsSync(htmlPath)) {
+        // Establecer el Content-Type correcto para HTML
+        res.sendFile(htmlPath, { headers: { 'Content-Type': 'text/html' } });
+    } else {
+        res.status(404).send('Frontend file (index.html) not found.');
+    }
+});
+
+// 1. OBTENER HORARIOS Y CUPOS (GET /api/clases)
+app.get('/api/clases', async (req, res) => {
+    try {
+        // Aseguramos que el conteo esté al día
+        await updateClasesCount(); 
+
+        const clases = await db.all(`
+            SELECT 
+                id_clase as id,
+                dia,
+                hora,
+                clase,
+                cantAlumnos
+            FROM horario_clases
+            ORDER BY 
+                CASE dia 
+                    WHEN 'lunes' THEN 1 
+                    WHEN 'martes' THEN 2 
+                    WHEN 'miércoles' THEN 3 
+                    WHEN 'jueves' THEN 4 
+                    WHEN 'viernes' THEN 5 
+                    WHEN 'sábado ' THEN 6 
+                    ELSE 7 
+                END, hora;
+        `);
+
+        // Transformar datos para el frontend (añadir cupoCompleto y cuposDisponibles)
+        const result = clases.map(c => ({
+            ...c,
+            cupoCompleto: c.cantAlumnos >= MAX_ALUMNOS,
+            cuposDisponibles: MAX_ALUMNOS - c.cantAlumnos,
+        }));
+
+        res.json(result);
+    } catch (error) {
+        console.error('Error al obtener clases:', error);
+        res.status(500).json({ message: 'Error interno del servidor al obtener clases.' });
+    }
 });
 
 
-// 3. INSCRIPCIÓN / CREACIÓN DE ALUMNO (ABM/CRUD: Create - Principal)
-// Cuerpo: { nombres, apellidos, dni, email, telefono, clases_ids: ['id1', 'id2'] }
-app.post('/api/inscripcion', (req, res) => {
+// 2. INSCRIPCIÓN / RESERVA DE CLASES (POST /api/inscripcion) - Implementa CRUD (Crear Alumno) y lógica de negocio
+app.post('/api/inscripcion', async (req, res) => {
     const { nombres, apellidos, dni, email, telefono, clases_ids } = req.body;
 
     if (!nombres || !apellidos || !dni || !email || !clases_ids || clases_ids.length === 0) {
-        return res.status(400).json({ error: 'Faltan campos obligatorios o clases seleccionadas.' });
+        return res.status(400).json({ message: 'Faltan campos obligatorios para la inscripción.' });
     }
 
-    updateClasesCount();
+    try {
+        await db.run('BEGIN TRANSACTION');
 
-    // 1. Validar cupos antes de inscribir al alumno
-    const clasesAInscribir = clases_ids.map(id => clases.find(c => c.id === id)).filter(Boolean);
-    const clasesCompletas = clasesAInscribir.filter(c => c.cupoCompleto);
+        // 1. Buscar o Crear Alumno (ABM - C)
+        let alumno = await db.get('SELECT id_alumno as id FROM alumnos WHERE dni = ?', [dni]);
+        let alumnoId;
 
-    if (clasesCompletas.length > 0) {
-        const nombresClasesCompletas = clasesCompletas.map(c => `${c.clase} (${c.dia} ${c.hora})`).join(', ');
-        // Retorna 409 Conflict si hay clases completas (para el alert)
-        return res.status(409).json({
-            error: 'Una o más clases seleccionadas están completas.',
-            clasesCompletas: nombresClasesCompletas
+        if (alumno) {
+            alumnoId = alumno.id;
+            // Actualizar datos del alumno existente (ABM - U)
+            await db.run('UPDATE alumnos SET nombres = ?, apellidos = ?, email = ?, telefono = ? WHERE id_alumno = ?',
+                [nombres, apellidos, email, telefono, alumnoId]);
+            console.log(`Alumno ${alumnoId} existente actualizado.`);
+        } else {
+            // Insertar nuevo alumno (ABM - C)
+            const result = await db.run('INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (?, ?, ?, ?, ?)',
+                [nombres, apellidos, dni, email, telefono]);
+            alumnoId = result.lastID;
+            console.log(`Nuevo alumno ${alumnoId} creado.`);
+        }
+
+        // 2. Verificar Cupos y Registrar Inscripciones
+        const clasesCompletas = [];
+        const clasesInscritas = [];
+
+        for (const claseId of clases_ids) {
+            // Recalculamos el cupo justo antes de intentar inscribir, para evitar colisiones
+            await db.run('UPDATE horario_clases SET cantAlumnos = (SELECT COUNT(clase_id) FROM alumnos_clases WHERE clase_id = horario_clases.id_clase) WHERE id_clase = ?', [claseId]);
+            
+            const claseInfo = await db.get('SELECT clase, dia, hora, cantAlumnos FROM horario_clases WHERE id_clase = ?', [claseId]);
+
+            if (!claseInfo) continue;
+
+            const isFull = claseInfo.cantAlumnos >= MAX_ALUMNOS;
+            
+            // Verificar si el alumno ya está inscrito
+            const alreadyInscrito = await db.get('SELECT 1 FROM alumnos_clases WHERE alumno_id = ? AND clase_id = ?', [alumnoId, claseId]);
+
+            if (isFull) {
+                clasesCompletas.push(`${claseInfo.clase} (${claseInfo.dia} ${claseInfo.hora.substring(0, 5)})`);
+            } else if (!alreadyInscrito) {
+                // Inscribir al alumno (CREATE en alumnos_clases)
+                await db.run('INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (?, ?)', [alumnoId, claseId]);
+                clasesInscritas.push(`${claseInfo.clase} (${claseInfo.dia} ${claseInfo.hora.substring(0, 5)})`);
+            }
+        }
+
+        // 3. Manejo de Conflictos y Respuesta
+        if (clasesCompletas.length > 0) {
+            // Si alguna clase se llenó justo antes o estaba llena, abortar y avisar al usuario.
+            await db.run('ROLLBACK');
+            return res.status(409).json({ // 409 Conflict
+                message: 'Algunas clases están completas.',
+                clasesCompletas: clasesCompletas.join(', ')
+            });
+        }
+        
+        // Si no hay conflictos, consolidar la transacción.
+        await db.run('COMMIT');
+        
+        // 4. Actualizar conteo de clases (finalmente, para asegurar que toda la tabla esté al día)
+        await updateClasesCount();
+
+        res.status(201).json({ 
+            message: 'Inscripción procesada con éxito.', 
+            alumnoId,
+            clasesInscritas 
         });
+
+    } catch (error) {
+        await db.run('ROLLBACK');
+        // El error 19 es típicamente una violación de restricción UNIQUE (como el DNI), aunque DNI ya se maneja en el paso 1.
+        console.error('Error al procesar la inscripción:', error);
+        res.status(500).json({ message: 'Error interno del servidor durante la transacción.' });
     }
-
-    // 2. Guardar el registro del alumno (Si ya existe por DNI, usar el ID existente)
-    let alumnoExistente = alumnos.find(a => a.dni === dni);
-    let nuevoAlumnoId;
-
-    if (alumnoExistente) {
-        nuevoAlumnoId = alumnoExistente.id;
-        // Actualizar datos del alumno existente (si se requiere)
-        Object.assign(alumnoExistente, { nombres, apellidos, email, telefono });
-    } else {
-        nuevoAlumnoId = uuidv4();
-        const nuevoAlumno = {
-            id: nuevoAlumnoId,
-            nombres,
-            apellidos,
-            dni,
-            email,
-            telefono
-        };
-        alumnos.push(nuevoAlumno);
-    }
-
-    // 3. Guardar los nuevos registros en alumnos_clases
-    let clasesInscritasExitosas = [];
-    clasesAInscribir.forEach(clase => {
-        // Doble chequeo de cupo justo antes de la inscripción
-        if ((alumnosClases[clase.id] ? alumnosClases[clase.id].length : 0) < MAX_ALUMNOS) {
-            if (!alumnosClases[clase.id]) {
-                alumnosClases[clase.id] = [];
-            }
-            // Evitar duplicados (un alumno no puede inscribirse dos veces a la misma clase)
-            if (!alumnosClases[clase.id].includes(nuevoAlumnoId)) {
-                alumnosClases[clase.id].push(nuevoAlumnoId);
-                clasesInscritasExitosas.push(clase.clase);
-            }
-        }
-    });
-
-    updateClasesCount();
-
-    res.status(201).json({
-        mensaje: 'Inscripción exitosa. Alumno registrado.',
-        alumnoId: nuevoAlumnoId,
-        clasesInscritas: clasesInscritasExitosas
-    });
-});
-
-// --- Rutas de Gestión de Alumnos (ABM/CRUD) ---
-
-// 4. OBTENER ALUMNOS (Reporte)
-app.get('/api/alumnos', (req, res) => {
-    res.json(alumnos);
-});
-
-// 5. OBTENER CLASES INSCRITAS DE UN ALUMNO (Reporte Detalle)
-app.get('/api/alumnos/:id/clases', (req, res) => {
-    const alumnoId = req.params.id;
-    const clasesInscritas = [];
-
-    for (const claseId in alumnosClases) {
-        if (alumnosClases[claseId].includes(alumnoId)) {
-            const clase = clases.find(c => c.id === claseId);
-            if (clase) {
-                clasesInscritas.push(clase);
-            }
-        }
-    }
-    res.json(clasesInscritas);
 });
 
 
-// 6. MODIFICAR ALUMNO (ABM/CRUD: Update)
-app.put('/api/alumnos/:id', (req, res) => {
-    const alumnoId = req.params.id;
+// 3. REPORTE: OBTENER ALUMNOS (GET /api/alumnos)
+app.get('/api/alumnos', async (req, res) => {
+    try {
+        const alumnos = await db.all('SELECT id_alumno as id, nombres, apellidos, dni, email, telefono FROM alumnos ORDER BY apellidos, nombres');
+        res.json(alumnos);
+    } catch (error) {
+        console.error('Error al obtener alumnos:', error);
+        res.status(500).json({ message: 'Error interno del servidor al obtener alumnos.' });
+    }
+});
+
+// 4. REPORTE: OBTENER CLASES INSCRITAS DE UN ALUMNO (GET /api/alumnos/:id/clases)
+app.get('/api/alumnos/:id/clases', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const clases = await db.all(`
+            SELECT
+                h.id_clase as id,
+                h.dia,
+                h.hora,
+                h.clase
+            FROM alumnos_clases ac
+            JOIN horario_clases h ON ac.clase_id = h.id_clase
+            WHERE ac.alumno_id = ?
+            ORDER BY 
+                CASE h.dia 
+                    WHEN 'lunes' THEN 1 
+                    WHEN 'martes' THEN 2 
+                    WHEN 'miércoles' THEN 3 
+                    WHEN 'jueves' THEN 4 
+                    WHEN 'viernes' THEN 5 
+                    WHEN 'sábado ' THEN 6 
+                    ELSE 7 
+                END, h.hora;
+        `, [id]);
+        res.json(clases);
+    } catch (error) {
+        console.error('Error al obtener clases del alumno:', error);
+        res.status(500).json({ message: 'Error interno del servidor al obtener clases del alumno.' });
+    }
+});
+
+// 5. ABM (CRUD): ACTUALIZAR ALUMNO (PUT /api/alumnos/:id)
+app.put('/api/alumnos/:id', async (req, res) => {
+    const { id } = req.params;
     const { nombres, apellidos, dni, email, telefono } = req.body;
 
-    const index = alumnos.findIndex(a => a.id === alumnoId);
-
-    if (index === -1) {
-        return res.status(404).json({ error: 'Alumno no encontrado para modificar' });
+    if (!nombres || !apellidos || !dni || !email) {
+        return res.status(400).json({ message: 'Faltan campos obligatorios para actualizar.' });
     }
 
-    // Actualizar solo los campos proporcionados
-    alumnos[index] = {
-        ...alumnos[index],
-        nombres: nombres || alumnos[index].nombres,
-        apellidos: apellidos || alumnos[index].apellidos,
-        dni: dni || alumnos[index].dni,
-        email: email || alumnos[index].email,
-        telefono: telefono || alumnos[index].telefono,
-    };
+    try {
+        const result = await db.run(
+            'UPDATE alumnos SET nombres = ?, apellidos = ?, dni = ?, email = ?, telefono = ? WHERE id_alumno = ?',
+            [nombres, apellidos, dni, email, telefono, id]
+        );
 
-    res.json({ mensaje: 'Alumno actualizado con éxito', alumno: alumnos[index] });
-});
-
-// 7. ELIMINAR ALUMNO (ABM/CRUD: Delete)
-app.delete('/api/alumnos/:id', (req, res) => {
-    const alumnoId = req.params.id;
-
-    // 1. Eliminar de la lista de alumnos
-    const initialLength = alumnos.length;
-    alumnos = alumnos.filter(a => a.id !== alumnoId);
-
-    if (alumnos.length === initialLength) {
-        return res.status(404).json({ error: 'Alumno no encontrado para eliminar' });
-    }
-
-    // 2. Eliminar al alumno de todas las clases inscritas
-    for (const claseId in alumnosClases) {
-        alumnosClases[claseId] = alumnosClases[claseId].filter(id => id !== alumnoId);
-        // Opcional: limpiar entradas vacías
-        if (alumnosClases[claseId].length === 0) {
-            delete alumnosClases[claseId];
+        if (result.changes === 0) {
+            return res.status(404).json({ message: 'Alumno no encontrado.' });
         }
+
+        res.status(200).json({ message: 'Alumno actualizado con éxito.' });
+    } catch (error) {
+        console.error('Error al actualizar alumno:', error);
+        res.status(500).json({ message: 'Error interno del servidor al actualizar alumno.' });
     }
-
-    updateClasesCount();
-    res.status(204).send(); // 204 No Content para eliminación exitosa
 });
 
+// 6. ABM (CRUD): ELIMINAR ALUMNO (DELETE /api/alumnos/:id)
+app.delete('/api/alumnos/:id', async (req, res) => {
+    const { id } = req.params;
 
-// --- Servir Frontend (Fallback) ---
-// Debe ser la última ruta para actuar como fallback
-app.get('*', (req, res) => {
-    // Si la solicitud no es para un recurso de la API, sirve el archivo del frontend (App.jsx)
-    // El frontend hará peticiones a /api/*
-    res.sendFile(path.join(__dirname, 'index.html'), { headers: { 'Content-Type': 'text/html' } }, (err) => {
-        if (err) {
-            console.error('Error al intentar servir index.html:', err);
-            res.status(404).send('No se pudo encontrar el frontend (index..html). Asegúrate de que existe en el directorio del servidor.');
+    try {
+        // La tabla alumnos_clases tiene una restricción ON DELETE CASCADE,
+        // por lo que al eliminar el alumno, se eliminan automáticamente sus inscripciones.
+        const result = await db.run('DELETE FROM alumnos WHERE id_alumno = ?', [id]);
+
+        if (result.changes === 0) {
+            return res.status(404).json({ message: 'Alumno no encontrado.' });
         }
-    });
+        
+        // Actualizar conteo de clases después de la eliminación en cascada
+        await updateClasesCount();
+
+        res.status(204).send(); // 204 No Content para eliminación exitosa
+    } catch (error) {
+        console.error('Error al eliminar alumno:', error);
+        res.status(500).json({ message: 'Error interno del servidor al eliminar alumno.' });
+    }
 });
 
 
-// --- Inicio del Servidor ---
-if (process.env.NODE_ENV !== 'test') {
+// Inicialización y arranque del servidor
+async function startServer() {
+    await initializeDatabase();
     app.listen(PORT, () => {
         console.log(`Servidor API escuchando en http://localhost:${PORT}`);
     });
 }
 
-// Exportar la aplicación para el testing con supertest
-module.exports = app;
-
+startServer();
