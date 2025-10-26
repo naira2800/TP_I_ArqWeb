@@ -1,11 +1,11 @@
 name: CI/CD de Yoga API (Test, Build, Deploy)
 
-# on:
+on:
 #   # Se ejecuta cuando hay un push o un Pull Request a la rama 'main'
-#   push:
-#     branches: [ "main" ]
-#   pull_request:
-#     branches: [ "main" ]
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
   # Job 1: Ejecutar pruebas unitarias en diferentes versiones de Node
@@ -61,20 +61,20 @@ jobs:
       run: echo "Build y verificación de dependencias completada."
 
   # Job 3: Despliegue (Depende del éxito del Build)
-  deploy:
-    name: Despliegue a Render
-    needs: build # Solo se ejecuta si el job 'build' es exitoso
-    runs-on: ubuntu-latest
+  # deploy:
+  #   name: Despliegue a Render
+  #   needs: build # Solo se ejecuta si el job 'build' es exitoso
+  #   runs-on: ubuntu-latest
     
-    steps:
-    - name: Despliegue Vía Render (Configuración Recomendada)
-      # Render prefiere la conexión directa al repositorio para Node.js.
-      # Este paso es un placeholder para confirmar el flujo de CI/CD.
-      run: echo "Render se encargará del despliegue automático al detectar cambios en la rama main."
+  #   steps:
+  #   - name: Despliegue Vía Render (Configuración Recomendada)
+  #     # Render prefiere la conexión directa al repositorio para Node.js.
+  #     # Este paso es un placeholder para confirmar el flujo de CI/CD.
+  #     run: echo "Render se encargará del despliegue automático al detectar cambios en la rama main."
       
-    # Si quisieras un despliegue por API Key, usarías algo como esto:
-    # - name: Deploy a Render (Opcional)
-    #   uses: johnnyopao/render-deploy-action@v1.0.0
-    #   with:
-    #     service-id: ${{ secrets.RENDER_SERVICE_ID }}
-    #     api-key: ${{ secrets.RENDER_API_KEY }}
+  #   # Si quisieras un despliegue por API Key, usarías algo como esto:
+  #   # - name: Deploy a Render (Opcional)
+  #   #   uses: johnnyopao/render-deploy-action@v1.0.0
+  #   #   with:
+  #   #     service-id: ${{ secrets.RENDER_SERVICE_ID }}
+  #   #     api-key: ${{ secrets.RENDER_API_KEY }}
