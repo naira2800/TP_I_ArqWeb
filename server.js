@@ -9,13 +9,12 @@ const { v4: uuidv4 } = require('uuid');
 const app = express();
 const PORT = 3000;
 const DB_PATH = path.join(__dirname, 'yoga.db');
-// Eliminamos la dependencia de SQL_SCHEMA_PATH
 
 const MAX_ALUMNOS = 6;
 
 let db;
 
-// Esquema y datos SQL para la inicialización (Anteriormente en yoga.sql)
+// Esquema y datos SQL para la inicialización (Corrección: Asegurarse de que el número de columnas y valores coincida)
 const INITIAL_SQL_SCHEMA = `
 -- Habilita la integridad referencial para ON DELETE CASCADE
 PRAGMA foreign_keys = ON; 
@@ -36,46 +35,48 @@ CREATE TABLE alumnos (
 );
 
 -- Records of alumnos
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (1, 'Leandro', 'Pérez', '11678443', 'leandro.perez@icloud.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (2, 'Daiana', 'Martínez', '55412533', 'daiana.martinez@icloud.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (3, 'María', 'Díaz', '24672546', 'maria.diaz@outlook.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (4, 'Micaela', 'Ramos', '49544950', 'micaela.ramos@yahoo.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (5, 'Carolina', 'Ruiz', '20434052', 'carolina.ruiz@outlook.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (6, 'Gonzalo', 'Martínez', '34090698', 'gonzalo.martinez@yahoo.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (7, 'Tomás', 'Pérez', '35403012', 'tomas.perez@gmail.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (8, 'Hernán', 'López', '13075222', 'hernan.lopez@icloud.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (9, 'Sofía', 'Benítez', '28654492', 'sofia.benitez@hotmail.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (10, 'Bruno', 'Gutiérrez', '54974694', 'bruno.gutierrez@yahoo.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (11, 'Camila', 'Suárez', '35464823', 'camila.suarez@yahoo.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (12, 'Micaela', 'Gómez', '31169695', 'micaela.gomez@hotmail.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (13, 'Santiago', 'Ponce', '43502842', 'santiago.ponce@hotmail.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (14, 'Valentina', 'Silva', '59995364', 'valentina.silva@live.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (15, 'Lautaro', 'Pereyra', '19283286', 'lautaro.pereyra@live.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (16, 'Diego', 'Méndez', '20736210', 'diego.mendez@icloud.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (17, 'Rocío', 'Suárez', '45508262', 'rocio.suarez@yahoo.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (18, 'Milagros', 'Ponce', '32828789', 'milagros.ponce@gmail.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (19, 'Juan', 'Barrera', '58296952', 'juan.barrera@yahoo.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (20, 'Leandro', 'Muñoz', '52879174', 'leandro.munoz@live.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (21, 'Esteban', 'Torres', '46197113', 'esteban.torres@live.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (22, 'Jorge', 'Vega', '30636923', 'jorge.vega@outlook.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (23, 'Sol', 'Ferreyra', '14644773', 'sol.ferreyra@live.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (24, 'Morena', 'Torres', '27787649', 'morena.torres@live.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (25, 'Hernán', 'Muñoz', '36775919', 'hernan.munoz@icloud.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (26, 'Jorge', 'Silva', '25079183', 'jorge.silva@gmail.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (27, 'Juan', 'López', '57502401', 'juan.lopez@icloud.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (28, 'Carolina', 'López', '44504433', 'carolina.lopez@outlook.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (29, 'Sol', 'Figueroa', '48668909', 'sol.figueroa@hotmail.com', '54');
-INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (30, 'Sofía', 'Martínez', '54223583', 'sofia.martinez@hotmail.com', '54');
+-- CORRECCIÓN: Se agrega explícitamente 'id_alumno' a la lista de columnas para que coincida con los 6 valores.
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (1, 'Leandro', 'Pérez', '11678443', 'leandro.perez@icloud.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (2, 'Daiana', 'Martínez', '55412533', 'daiana.martinez@icloud.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (3, 'María', 'Díaz', '24672546', 'maria.diaz@outlook.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (4, 'Micaela', 'Ramos', '49544950', 'micaela.ramos@yahoo.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (5, 'Carolina', 'Ruiz', '20434052', 'carolina.ruiz@outlook.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (6, 'Gonzalo', 'Martínez', '34090698', 'gonzalo.martinez@yahoo.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (7, 'Tomás', 'Pérez', '35403012', 'tomas.perez@gmail.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (8, 'Hernán', 'López', '13075222', 'hernan.lopez@icloud.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (9, 'Sofía', 'Benítez', '28654492', 'sofia.benitez@hotmail.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (10, 'Bruno', 'Gutiérrez', '54974694', 'bruno.gutierrez@yahoo.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (11, 'Camila', 'Suárez', '35464823', 'camila.suarez@yahoo.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (12, 'Micaela', 'Gómez', '31169695', 'micaela.gomez@hotmail.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (13, 'Santiago', 'Ponce', '43502842', 'santiago.ponce@hotmail.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (14, 'Valentina', 'Silva', '59995364', 'valentina.silva@live.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (15, 'Lautaro', 'Pereyra', '19283286', 'lautaro.pereyra@live.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (16, 'Diego', 'Méndez', '20736210', 'diego.mendez@icloud.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (17, 'Rocío', 'Suárez', '45508262', 'rocio.suarez@yahoo.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (18, 'Milagros', 'Ponce', '32828789', 'milagros.ponce@gmail.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (19, 'Juan', 'Barrera', '58296952', 'juan.barrera@yahoo.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (20, 'Leandro', 'Muñoz', '52879174', 'leandro.munoz@live.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (21, 'Esteban', 'Torres', '46197113', 'esteban.torres@live.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (22, 'Jorge', 'Vega', '30636923', 'jorge.vega@outlook.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (23, 'Sol', 'Ferreyra', '14644773', 'sol.ferreyra@live.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (24, 'Morena', 'Torres', '27787649', 'morena.torres@live.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (25, 'Hernán', 'Muñoz', '36775919', 'hernan.munoz@icloud.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (26, 'Jorge', 'Silva', '25079183', 'jorge.silva@gmail.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (27, 'Juan', 'López', '57502401', 'juan.lopez@icloud.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (28, 'Carolina', 'López', '44504433', 'carolina.lopez@outlook.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (29, 'Sol', 'Figueroa', '48668909', 'sol.figueroa@hotmail.com', '54');
+INSERT INTO alumnos (id_alumno, nombres, apellidos, dni, email, telefono) VALUES (30, 'Sofía', 'Martínez', '54223583', 'sofia.martinez@hotmail.com', '54');
 
 -- Table structure for horario_clases
 CREATE TABLE horario_clases (
   id_clase INTEGER PRIMARY KEY AUTOINCREMENT,
   dia TEXT,
   hora TEXT,
-  clase TEXT
+  clase TEXT,
+  cantAlumnos INTEGER DEFAULT 0 -- Esta columna se recalculará
 );
 
--- Records of horario_clases (Nota: La columna cantAlumnos será actualizada por updateClasesCount)
+-- Records of horario_clases (La columna cantAlumnos será actualizada por updateClasesCount)
 INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (2, 'lunes', '10:00:00', 'HATHA YOGA');
 INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (3, 'lunes', '17:00:00', 'HATHA YOGA');
 INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES (4, 'lunes', '18:00:00', 'ACROYOGA');
@@ -179,7 +180,7 @@ app.get('/', (req, res) => {
         // Establecer el Content-Type correcto para HTML
         res.sendFile(htmlPath, { headers: { 'Content-Type': 'text/html' } });
     } else {
-        res.status(404).send('Frontend file (index.html) not found.');
+        res.status(404).send('Frontend file (index.html) not found. Asegúrese de que existe y se llama index.html.');
     }
 });
 
@@ -411,4 +412,3 @@ async function startServer() {
 }
 
 startServer();
-
