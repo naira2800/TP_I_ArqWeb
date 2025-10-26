@@ -1,11 +1,11 @@
 name: CI/CD de Yoga API (Test, Build, Deploy)
 
-on:
-  # Se ejecuta cuando hay un push o un Pull Request a la rama 'main'
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+# on:
+#   # Se ejecuta cuando hay un push o un Pull Request a la rama 'main'
+#   push:
+#     branches: [ "main" ]
+#   pull_request:
+#     branches: [ "main" ]
 
 jobs:
   # Job 1: Ejecutar pruebas unitarias en diferentes versiones de Node
