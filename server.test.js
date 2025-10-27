@@ -134,7 +134,7 @@ describe('API Endpoints Testing', () => {
         expect(response.body.message).toBe('Reserva(s) exitosa(s) con algunas advertencias.');
         expect(response.body.completas.length).toBe(1);
         expect(response.body.exitosas.length).toBe(1); // La Clase 7 se reserva
-        expect(response.body.completas[0]).toContain('ACROYOGA (lunes 18:00:00)');
+        expect(response.body.completas[0]).toContain('ACROYOGA (lunes 18:00)');
     });
 
     // Test 4: PUT /api/alumnos/:id - Actualización de Alumno (CRUD: Update)
