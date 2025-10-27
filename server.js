@@ -19,7 +19,7 @@ let server;
 app.use(cors());
 app.use(express.json());
 
-// --- ESQUEMA SQL INICIAL (Autocontenido) ---
+// --- ESQUEMA SQL INICIAL (Asegurando data completa y correcta) ---
 const INITIAL_SQL_SCHEMA = `
   -- Eliminar tablas si existen para garantizar un estado limpio en la inicialización
   DROP TABLE IF EXISTS alumnos_clases;
@@ -55,60 +55,76 @@ const INITIAL_SQL_SCHEMA = `
     FOREIGN KEY (clase_id) REFERENCES horario_clases(id_clase) ON DELETE CASCADE
   );
 
-  -- INSERTS de la Data Inicial (similar a yoga.sql)
-  -- Clases (total 26)
-  INSERT INTO horario_clases (dia, hora, clase) VALUES
-    ('lunes', '09:00:00', 'HATHA YOGA'),
-    ('lunes', '10:00:00', 'PILATES'),
-    ('lunes', '17:00:00', 'ASHTANGA YOGA'),
-    ('lunes', '18:00:00', 'ACROYOGA'),
-    ('lunes', '19:00:00', 'PILATES'),
-    ('lunes', '20:00:00', 'HATHA YOGA'),
-    ('martes', '09:00:00', 'ASHTANGA YOGA'),
-    ('martes', '10:00:00', 'HATHA YOGA'),
-    ('martes', '17:00:00', 'PILATES'),
-    ('martes', '18:00:00', 'ACROYOGA'),
-    ('martes', '19:00:00', 'HATHA YOGA'),
-    ('martes', '20:00:00', 'PILATES'),
-    ('miércoles', '09:00:00', 'PILATES'),
-    ('miércoles', '10:00:00', 'HATHA YOGA'),
-    ('miércoles', '16:00:00', 'PILATES'),
-    ('miércoles', '18:00:00', 'ASHTANGA YOGA'),
-    ('miércoles', '19:00:00', 'PILATES'),
-    ('miércoles', '20:00:00', 'HATHA YOGA'),
-    ('jueves', '09:00:00', 'ACROYOGA'),
-    ('jueves', '10:00:00', 'PILATES EXTREME'),
-    ('jueves', '17:00:00', 'HATHA YOGA'),
-    ('jueves', '18:00:00', 'PILATES EXTREME'),
-    ('viernes', '09:00:00', 'PILATES'),
-    ('viernes', '15:00:00', 'ASHTANGA YOGA'),
-    ('viernes', '16:00:00', 'HATHA YOGA'),
-    ('sábado ', '10:00:00', 'PILATES'); -- Nota: Sábado tiene un espacio final en la data original
-
-  -- Alumnos de prueba
+  -- Inserción de datos iniciales para la tabla alumnos (30 registros del yoga.sql)
   INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES
-    ('Juan', 'Pérez', '12345678', 'juan.perez@test.com', '1122334455'), -- ID 1
-    ('Ana', 'Gómez', '87654321', 'ana.gomez@test.com', '9988776655'); -- ID 2
+    ('Leandro', 'Pérez', '11678443', 'leandro.perez@icloud.com', '54'),
+    ('Daiana', 'Martínez', '55412533', 'daiana.martinez@icloud.com', '54'),
+    ('María', 'Díaz', '24672546', 'maria.diaz@outlook.com', '54'),
+    ('Micaela', 'Ramos', '49544950', 'micaela.ramos@yahoo.com', '54'),
+    ('Carolina', 'Ruiz', '20434052', 'carolina.ruiz@outlook.com', '54'),
+    ('Gonzalo', 'Martínez', '34090698', 'gonzalo.martinez@yahoo.com', '54'),
+    ('Tomás', 'Pérez', '35403012', 'tomas.perez@gmail.com', '54'),
+    ('Hernán', 'López', '13075222', 'hernan.lopez@icloud.com', '54'),
+    ('Sofía', 'Benítez', '28654492', 'sofia.benitez@hotmail.com', '54'),
+    ('Bruno', 'Gutiérrez', '54974694', 'bruno.gutierrez@yahoo.com', '54'),
+    ('Camila', 'Suárez', '35464823', 'camila.suarez@yahoo.com', '54'),
+    ('Micaela', 'Gómez', '31169695', 'micaela.gomez@hotmail.com', '54'),
+    ('Santiago', 'Ponce', '43502842', 'santiago.ponce@hotmail.com', '54'),
+    ('Valentina', 'Silva', '59995364', 'valentina.silva@live.com', '54'),
+    ('Lautaro', 'Pereyra', '19283286', 'lautaro.pereyra@live.com', '54'),
+    ('Diego', 'Méndez', '20736210', 'diego.mendez@icloud.com', '54'),
+    ('Rocío', 'Suárez', '45508262', 'rocio.suarez@yahoo.com', '54'),
+    ('Milagros', 'Ponce', '32828789', 'milagros.ponce@gmail.com', '54'),
+    ('Juan', 'Barrera', '58296952', 'juan.barrera@yahoo.com', '54'),
+    ('Leandro', 'Muñoz', '52879174', 'leandro.munoz@live.com', '54'),
+    ('Esteban', 'Torres', '46197113', 'esteban.torres@live.com', '54'),
+    ('Jorge', 'Vega', '30636923', 'jorge.vega@outlook.com', '54'),
+    ('Sol', 'Ferreyra', '14644773', 'sol.ferreyra@live.com', '54'),
+    ('Morena', 'Torres', '27787649', 'morena.torres@live.com', '54'),
+    ('Hernán', 'Muñoz', '36775919', 'hernan.munoz@icloud.com', '54'),
+    ('Jorge', 'Silva', '25079183', 'jorge.silva@gmail.com', '54'),
+    ('Juan', 'López', '57502401', 'juan.lopez@icloud.com', '54'),
+    ('Carolina', 'López', '44504433', 'carolina.lopez@outlook.com', '54'),
+    ('Sol', 'Figueroa', '48668909', 'sol.figueroa@hotmail.com', '54'),
+    ('Sofía', 'Martínez', '54223583', 'sofia.martinez@hotmail.com', '54');
 
-  -- Inscripciones de prueba (Algunas clases llenas para testing)
-  -- Clase 1 (Lunes 09:00) - Llenarla con 2
-  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (1, 1);
-  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (2, 1);
-  
-  -- Clase 2 (Lunes 10:00) - 1 alumno
-  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (1, 2);
-
-  -- Clase 3 (Lunes 17:00) - 1 alumno
-  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (2, 3);
-
-  -- Clase 4 (Lunes 18:00) - 1 alumno
-  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (1, 4);
-  
-  -- Clase 10 (Martes 18:00) - 1 alumno
-  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (2, 10);
-  
-  -- Clase 26 (Sábado 10:00) - 1 alumno
-  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (1, 26);
+  -- Inserción de datos iniciales para la tabla de clases (30 registros del yoga.sql)
+  INSERT INTO horario_clases (id_clase, dia, hora, clase) VALUES
+    (2, 'lunes', '10:00:00', 'HATHA YOGA'),
+    (3, 'lunes', '17:00:00', 'HATHA YOGA'),
+    (4, 'lunes', '18:00:00', 'ACROYOGA'),
+    (5, 'lunes', '19:00:00', 'PILATES'),
+    (6, 'lunes', '20:00:00', 'HATHA YOGA'),
+    (7, 'martes', '10:00:00', 'PILATES EXTREME'),
+    (8, 'martes', '15:00:00', 'ASHTANGA YOGA'),
+    (9, 'martes', '16:00:00', 'ACROYOGA'),
+    (10, 'martes', '17:00:00', 'PILATES'),
+    (11, 'martes', '18:00:00', 'PILATES EXTREME'),
+    (12, 'miércoles', '10:00:00', 'HATHA YOGA'),
+    (13, 'miércoles', '16:00:00', 'PILATES'),
+    (14, 'miércoles', '18:00:00', 'ASHTANGA YOGA'),
+    (15, 'miércoles', '19:00:00', 'PILATES'),
+    (16, 'miércoles', '20:00:00', 'HATHA YOGA'),
+    (17, 'jueves', '09:00:00', 'ACROYOGA'),
+    (18, 'jueves', '10:00:00', 'PILATES EXTREME'),
+    (19, 'jueves', '17:00:00', 'HATHA YOGA'),
+    (20, 'jueves', '18:00:00', 'PILATES EXTREME'),
+    (21, 'viernes', '09:00:00', 'PILATES'),
+    (22, 'viernes', '15:00:00', 'ASHTANGA YOGA'),
+    (23, 'viernes', '16:00:00', 'PILATES'),
+    (24, 'viernes', '17:00:00', 'PILATES'),
+    (25, 'viernes', '18:00:00', 'ACROYOGA'),
+    (26, 'viernes', '19:00:00', 'PILATES'),
+    (27, 'viernes', '20:00:00', 'HATHA YOGA'),
+    (28, 'sábado ', '09:00:00', 'YOGA+MEDITACIÓN'),
+    (29, 'sábado ', '10:00:00', 'ACROYOGA'),
+    (30, 'sábado ', '11:00:00', 'PILATES');
+    
+  -- Inserción de inscripciones iniciales (del yoga.sql, Alumno ID 1 y 2)
+  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (1, 10);
+  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (1, 24);
+  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (2, 2);
+  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (2, 12);
 
 `;
 
@@ -130,7 +146,7 @@ app.get('/api/clases', async (req, res) => {
         hc.hora,
         hc.clase,
         hc.capacidad,
-        COUNT(ac.alumno_id) AS inscriptos
+        COALESCE(COUNT(ac.alumno_id), 0) AS inscriptos
       FROM
         horario_clases hc
       LEFT JOIN
@@ -144,7 +160,7 @@ app.get('/api/clases', async (req, res) => {
           WHEN 'miércoles' THEN 3
           WHEN 'jueves' THEN 4
           WHEN 'viernes' THEN 5
-          WHEN 'sábado ' THEN 6 -- Cuidado con el espacio en 'sábado '
+          WHEN 'sábado ' THEN 6 -- Usar 'sábado ' para coincidir con el insert
           ELSE 7
         END,
         hc.hora;
@@ -167,7 +183,7 @@ app.post('/api/reservar', async (req, res) => {
 
   try {
     // 1. Obtener o Crear el Alumno
-    let alumno = await db.get('SELECT id_alumno FROM alumnos WHERE dni = ?', [dni]);
+    let alumno = await db.get('SELECT id_alumno FROM alumnos WHERE dni = ? OR email = ?', [dni, email]);
 
     if (!alumno) {
       // Crear nuevo alumno
@@ -176,12 +192,12 @@ app.post('/api/reservar', async (req, res) => {
         [nombres, apellidos, dni, email, telefono]
       );
       alumno = { id_alumno: result.lastID };
-      console.log(`[RESERVA] Nuevo alumno creado: ${nombres} ${apellidos} (ID: ${alumno.id_alumno})`);
     }
 
     const alumnoId = alumno.id_alumno;
     const clasesExitosas = [];
     const clasesCompletas = [];
+    const clasesYaInscritas = []; // Añadido para mejor feedback
 
     // 2. Procesar las Reservas
     for (const claseIdStr of clasesSeleccionadas) {
@@ -206,12 +222,9 @@ app.post('/api/reservar', async (req, res) => {
           hc.id_clase, hc.dia, hc.hora, hc.clase, hc.capacidad;
       `, [claseId]);
 
-      if (!cupo) {
-        console.warn(`[RESERVA] Clase ID ${claseId} no encontrada.`);
-        continue;
-      }
+      if (!cupo) continue;
       
-      const claseNombre = `${cupo.clase} (${cupo.dia} ${cupo.hora})`;
+      const claseNombre = `${cupo.clase} (${cupo.dia.trim()} ${cupo.hora.slice(0, 5)})`;
 
       // B. Chequear si ya está inscripto
       const yaInscripto = await db.get(
@@ -220,12 +233,12 @@ app.post('/api/reservar', async (req, res) => {
       );
 
       if (yaInscripto) {
-        // Ignorar si ya está inscripto, no es un error
-        console.log(`[RESERVA] Alumno ${alumnoId} ya estaba inscripto a Clase ${claseId}.`);
+        clasesYaInscritas.push(claseNombre);
         continue;
       }
 
       // C. Verificar si hay cupo
+      // **CORRECCIÓN LÓGICA:** Usar cupo.capacidad
       if (cupo.inscriptos < cupo.capacidad) {
         // Inscribir al alumno
         await db.run(
@@ -233,11 +246,9 @@ app.post('/api/reservar', async (req, res) => {
           [alumnoId, claseId]
         );
         clasesExitosas.push(claseNombre);
-        console.log(`[RESERVA] Inscripción exitosa: Alumno ${alumnoId} a Clase ${claseId}`);
       } else {
         // Clase llena
         clasesCompletas.push(claseNombre);
-        console.log(`[RESERVA] Clase ID ${claseId} completa: ${cupo.inscriptos}/${cupo.capacidad}`);
       }
     }
 
@@ -245,12 +256,12 @@ app.post('/api/reservar', async (req, res) => {
     let statusCode = 201; // Estado por defecto: Creado
     let message = 'Proceso de reserva completado.';
 
-    if (clasesExitosas.length === 0 && clasesCompletas.length > 0) {
-      statusCode = 200; // No se creó nada, solo hubo errores de cupo
-      message = 'Las clases seleccionadas estaban completas o ya reservadas.';
-    } else if (clasesCompletas.length > 0) {
+    if (clasesExitosas.length === 0 && (clasesCompletas.length > 0 || clasesYaInscritas.length > 0)) {
+      statusCode = 200; // No se creó nada, solo hubo errores/avisos
+      message = 'No se pudo completar la reserva. Las clases estaban llenas o ya reservadas.';
+    } else if (clasesCompletas.length > 0 || clasesYaInscritas.length > 0) {
       statusCode = 200; // Éxitos parciales, devolver 200 con alerta
-      message = 'Reserva(s) exitosa(s), pero algunas clases estaban completas.';
+      message = 'Reserva(s) exitosa(s) con algunas advertencias.';
     }
 
     res.status(statusCode).json({
@@ -258,12 +269,12 @@ app.post('/api/reservar', async (req, res) => {
       alumnoId: alumnoId,
       exitosas: clasesExitosas,
       completas: clasesCompletas,
+      yaInscritas: clasesYaInscritas,
     });
 
   } catch (error) {
-    // Manejar errores de DNI/Email duplicado si el alumno era nuevo
     if (error.code === 'SQLITE_CONSTRAINT') {
-      return res.status(409).json({ error: 'El DNI o Email ya se encuentran registrados por otro alumno. Intente nuevamente.' });
+      return res.status(409).json({ error: 'El DNI o Email ya se encuentran registrados. Intente con otro.' });
     }
     console.error('Error en el proceso de reserva:', error);
     res.status(500).json({ error: 'Error interno del servidor al procesar la reserva.' });
@@ -299,7 +310,7 @@ app.put('/api/alumnos/:id', async (req, res) => {
     );
 
     if (result.changes === 0) {
-      return res.status(404).json({ error: 'Alumno no encontrado para actualizar.' });
+      return res.status(404).json({ error: 'Alumno no encontrado o sin cambios.' });
     }
 
     res.status(200).json({ message: 'Alumno actualizado exitosamente.' });
@@ -314,18 +325,16 @@ app.put('/api/alumnos/:id', async (req, res) => {
 
 
 // 5. DELETE /api/alumnos/:id - Eliminar Alumno (CRUD DELETE)
-// Se requiere un token de autorización simple para esta operación
 app.delete('/api/alumnos/:id', async (req, res) => {
   const { id } = req.params;
   const authToken = req.headers.authorization;
-  const ADMIN_TOKEN = 'ADMIN_TOKEN_SECRETO'; // Token simple para demostración
+  const ADMIN_TOKEN = 'ADMIN_TOKEN_SECRETO';
 
   if (authToken !== ADMIN_TOKEN) {
     return res.status(403).json({ error: 'Acceso denegado. Se requiere autenticación de administrador.' });
   }
 
   try {
-    // Alumnos_clases tiene ON DELETE CASCADE, por lo que solo borramos al alumno
     const result = await db.run('DELETE FROM alumnos WHERE id_alumno = ?', [id]);
 
     if (result.changes === 0) {
@@ -351,7 +360,7 @@ app.get('/api/reporte/detalle', async (req, res) => {
         hc.hora,
         hc.clase,
         hc.capacidad,
-        COUNT(ac.alumno_id) AS inscriptos
+        COALESCE(COUNT(ac.alumno_id), 0) AS inscriptos
       FROM
         horario_clases hc
       LEFT JOIN
@@ -391,9 +400,7 @@ app.get('/api/reporte/detalle', async (req, res) => {
 
 
 // --- Servir el Frontend (index.html) ---
-// Esta debe ser la última ruta para actuar como fallback
-app.get('*', (req, res) => {
-  // Aseguramos que el servidor sirva el index.html en la ruta raíz
+app.get('/', (req, res) => {
   const filePath = path.join(__dirname, 'index.html');
   res.sendFile(filePath, (err) => {
     if (err) {
@@ -401,6 +408,12 @@ app.get('*', (req, res) => {
       res.status(500).send('Error al cargar la aplicación frontend.');
     }
   });
+});
+
+// Ruta de fallback para servir el frontend
+app.get('*', (req, res) => {
+  const filePath = path.join(__dirname, 'index.html');
+  res.sendFile(filePath);
 });
 
 
@@ -413,7 +426,7 @@ async function startServer() {
       driver: sqlite3.Database
     });
 
-    // Inicializar el esquema de la base de datos
+    // Inicializar el esquema de la base de datos (siempre se reinicia para garantizar consistencia)
     await initializeDatabase();
 
     // Iniciar el servidor
@@ -431,6 +444,5 @@ async function startServer() {
 startServer();
 
 // **Exportaciones para Testing**
-// Exportamos la app y la constante CAPACIDAD_MAXIMA para que 'server.test.js' pueda utilizarlos.
 module.exports = app;
 module.exports.CAPACIDAD_MAXIMA = CAPACIDAD_MAXIMA;
