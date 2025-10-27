@@ -4,11 +4,11 @@
 const request = require('supertest');
 // Importamos la aplicación, la inicialización de DB y la capacidad máxima
 
-module.exports = {
-  app: app,
-  initializeDatabase: initializeDatabase,
-  CAPACIDAD_MAXIMA: CAPACIDAD_MAXIMA
-};
+// module.exports = {
+//   app: app,
+//   initializeDatabase: initializeDatabase,
+//   CAPACIDAD_MAXIMA: CAPACIDAD_MAXIMA
+// };
 
 const { app, initializeDatabase, CAPACIDAD_MAXIMA } = require('./server'); 
 const AUTH_TOKEN = 'ADMIN_TOKEN_SECRETO'; // Debe coincidir con el valor en server.js
@@ -205,4 +205,5 @@ describe('API Endpoints Testing', () => {
     });
 
 });
+
 
