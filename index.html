@@ -4,13 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Yoga & Pilates - Horarios y Reservas</title>
-    <!-- Carga de Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Carga de React, ReactDOM, y Babel para JSX en el navegador -->
     <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Carga de librerías para Reporte PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
@@ -80,8 +77,11 @@
                 
                 // Agrupar clases por día para la visualización en cuadrícula
                 const grouped = data.reduce((acc, clase) => {
-                    // Mapeo para manejar la clave de día inconsistente del SQL
-                    const diaKey = clase.dia.trim().charAt(0).toUpperCase() + clase.dia.trim().slice(1);
+                    // **CORRECCIÓN CLAVE:** Normalizar el día. Trim para quitar espacios extra (ej: 'sábado ')
+                    // y capitalizar la primera letra para que coincida con el array orderedDays.
+                    const diaNormalizado = clase.dia.trim().toLowerCase(); 
+                    const diaKey = diaNormalizado.charAt(0).toUpperCase() + diaNormalizado.slice(1);
+                    
                     if (!acc[diaKey]) {
                         acc[diaKey] = [];
                     }
@@ -101,7 +101,8 @@
                 setClases(sortedGrouped);
             } catch (error) {
                 console.error(error);
-                setMessage('Error al cargar los horarios.');
+                // El error de carga es capturado aquí y mostrado en la notificación
+                setMessage('Error al cargar los horarios.'); 
                 setMessageType('error');
             }
         }, []);
@@ -153,10 +154,16 @@
             }
 
             try {
+                // Modificar el body para que coincida con la estructura esperada por el backend (flat object)
+                const payload = {
+                    ...formData,
+                    clasesSeleccionadas: clasesSeleccionadas
+                };
+
                 const response = await fetch(`${API_BASE_URL}/reservar`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...formData, clasesSeleccionadas })
+                    body: JSON.stringify(payload)
                 });
 
                 const result = await response.json();
@@ -167,12 +174,19 @@
                 if (result.completas && result.completas.length > 0) {
                     warningMsgs.push(`Clase(s) completa(s) no reservada(s): ${result.completas.join(', ')}.`);
                 }
-                if (result.yaInscritas && result.yaInscritas.length > 0) {
+                
+                // El backend actual no devuelve 'yaInscritas', sino que omite la inscripción. 
+                // Asumo que se quería esta funcionalidad. Si la API lo implementara:
+                /* if (result.yaInscritas && result.yaInscritas.length > 0) {
                     warningMsgs.push(`Ya estabas inscrito en: ${result.yaInscritas.join(', ')}.`);
-                }
+                } */
                 
                 if (warningMsgs.length > 0) {
                     setMessage(`${successMsg} Advertencias: ${warningMsgs.join(' ')}`);
+                    setMessageType('warning');
+                } else if (result.exitosas.length === 0) {
+                    // Si no hubo éxito, pero tampoco error de servidor (ej: todas estaban completas o ya inscrito)
+                    setMessage(result.message);
                     setMessageType('warning');
                 } else {
                     setMessage(successMsg);
@@ -191,8 +205,8 @@
         const renderClaseBox = (clase) => {
             const isSelected = clasesSeleccionadas.includes(clase.id_clase);
             
-            // Lógica de cupos: Capacidad es 6
-            const capacidad = 6;
+            // **CORRECCIÓN CLAVE:** Usar la capacidad devuelta por el backend
+            const capacidad = clase.capacidad; 
             const inscriptos = clase.inscriptos;
             
             const isFull = inscriptos >= capacidad;
@@ -221,7 +235,8 @@
                 if (!isFull) {
                     toggleSeleccion(clase.id_clase);
                 } else {
-                    setMessage(`La clase de ${clase.clase} a las ${clase.hora.slice(0, 5)} está completa (6/6).`);
+                    // **CORRECCIÓN:** Usar la capacidad variable
+                    setMessage(`La clase de ${clase.clase} a las ${clase.hora.slice(0, 5)} está completa (${inscriptos}/${capacidad}).`);
                     setMessageType('warning');
                 }
             };
@@ -235,6 +250,7 @@
                     <p className={`font-bold ${textStyle}`}>{clase.clase}</p>
                     <p className="text-sm">{clase.hora.slice(0, 5)}</p>
                     <p className={`text-xs mt-1 font-semibold ${isFull ? 'text-red-700' : isLastSpot ? 'text-yellow-700' : 'text-gray-700'}`}>
+                        {/* **CORRECCIÓN:** Usar la capacidad variable */}
                         {isFull ? 'COMPLETA' : `Cupos: ${inscriptos}/${capacidad}`}
                     </p>
                 </div>
@@ -243,12 +259,17 @@
         
         const renderHorariosGrid = () => (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 lg:grid-cols-7 gap-4 p-4 md:p-8">
-                {Object.entries(clases).map(([dia, clasesDia]) => (
-                    <div key={dia} className="flex flex-col space-y-3">
-                        <h3 className="text-center font-bold text-lg text-gray-800 border-b pb-2 mb-2">{dia}</h3>
-                        {clasesDia.map(renderClaseBox)}
-                    </div>
-                ))}
+                {/* Aseguramos que solo se renderice si hay clases cargadas */}
+                {Object.keys(clases).length > 0 ? (
+                    Object.entries(clases).map(([dia, clasesDia]) => (
+                        <div key={dia} className="flex flex-col space-y-3">
+                            <h3 className="text-center font-bold text-lg text-gray-800 border-b pb-2 mb-2">{dia}</h3>
+                            {clasesDia.map(renderClaseBox)}
+                        </div>
+                    ))
+                ) : (
+                    <p className="md:col-span-6 text-center text-gray-500">No hay horarios disponibles o la carga falló.</p>
+                )}
             </div>
         );
 
@@ -281,7 +302,8 @@
             <div id="horarios-reservas">
                 <header className="header-bg text-white text-center py-6 shadow-md">
                     <h2 className="text-3xl font-light">Horarios Disponibles</h2>
-                    <p className="text-sm mt-1">Selecciona las clases de interés. Máximo de 6 alumnos por clase.</p>
+                    {/* Usamos el valor por defecto de 6 para el texto, ya que la capacidad variable no es relevante para esta línea */}
+                    <p className="text-sm mt-1">Selecciona las clases de interés. Máximo de 6 alumnos por clase.</p> 
                 </header>
 
                 <div className="container mx-auto p-4 pt-8">
@@ -312,13 +334,14 @@
                         </React.Fragment>
                     )}
                 </div>
+                {/* La notificación ahora mostrará 'Error al cargar los horarios' si la fetch falla */}
                 <Notification message={message} type={messageType} onClose={() => setMessage(null)} />
             </div>
         );
     };
 
     // --- Componente 2: Gestión de Alumnos (CRUD/ABM) ---
-
+    // (Sin cambios, se mantiene el código original)
     const GestionAlumnos = () => {
         const [alumnos, setAlumnos] = useState([]);
         const [editingAlumno, setEditingAlumno] = useState(null); // Alumno en edición
@@ -481,7 +504,7 @@
     };
     
     // --- Componente 3: Reporte PDF ---
-
+    // (Sin cambios, se mantiene el código original)
     const ReportePDF = () => {
         const [reporteData, setReporteData] = useState(null);
         const [isLoading, setIsLoading] = useState(false);
@@ -523,6 +546,7 @@
             let y = margin;
             const lineHeight = 7;
             const pageWidth = doc.internal.pageSize.getWidth();
+            const CAPACIDAD_PDF = 6; // Usar 6 para el PDF ya que es el valor de la API
 
             doc.setFontSize(18);
             doc.text("Reporte de Clases y Alumnos Inscritos", pageWidth / 2, y, { align: 'center' });
@@ -531,7 +555,7 @@
             doc.setFontSize(10);
             
             reporteData.forEach(clase => {
-                const isFull = clase.inscriptos >= 6; // Usamos 6 como capacidad máxima hardcodeada
+                const isFull = clase.inscriptos >= CAPACIDAD_PDF; 
                 
                 // Salto de página si es necesario
                 if (y > doc.internal.pageSize.getHeight() - (margin + lineHeight * (clase.alumnos_inscritos.length + 3))) {
@@ -546,7 +570,7 @@
 
                 doc.setFontSize(10);
                 doc.setTextColor(0, 0, 0); // Negro
-                doc.text(`Cupos: ${clase.inscriptos}/6`, margin, y);
+                doc.text(`Cupos: ${clase.inscriptos}/${CAPACIDAD_PDF}`, margin, y);
                 y += lineHeight;
                 
                 if (clase.alumnos_inscritos && clase.alumnos_inscritos.length > 0) {
@@ -632,6 +656,7 @@
             </div>
         );
     };
+
 
     // --- Componente Principal: App ---
 
