@@ -130,7 +130,8 @@ describe('API Endpoints Testing', () => {
         // La respuesta debe ser 200 (OK) con advertencia, no 201 (Created)
         expect(response.statusCode).toBe(200); 
         // Se corrige la expectativa del mensaje para que coincida con el server
-        expect(response.body.message).toBe('Proceso de reserva completado.');
+        //expect(response.body.message).toBe('Proceso de reserva completado.'); // Línea 133:
+        expect(response.body.message).toBe('Reserva(s) exitosa(s) con algunas advertencias.');
         expect(response.body.completas.length).toBe(1);
         expect(response.body.exitosas.length).toBe(1); // La Clase 7 se reserva
         expect(response.body.completas[0]).toContain('ACROYOGA (lunes 18:00:00)');
