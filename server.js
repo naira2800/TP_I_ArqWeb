@@ -441,10 +441,13 @@ async function startServer() {
 }
 
 // Iniciar
-startServer();
+if (require.main === module) {
+  startServer();
+}
 
 // **Exportaciones para Testing**
 module.exports = app;
 module.exports.CAPACIDAD_MAXIMA = CAPACIDAD_MAXIMA;
 module.exports.initializeDatabase = initializeDatabase;
+
 
