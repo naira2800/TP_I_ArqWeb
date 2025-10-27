@@ -440,25 +440,28 @@ async function startServer() {
   }
 }
 
-// Iniciar
+// **Añadido para Testing**
+// Definir la función openDatabase. Necesita ser una función con nombre
+// si la vamos a referenciar en el objeto de exportación.
+async function openDatabase() {
+    db = await open({
+      filename: DB_PATH,
+      driver: sqlite3.Database
+    });
+    return db; // Retorna el objeto db abierto
+}
+
+
+// Iniciar (solo si el archivo se ejecuta directamente, no cuando es importado para testing)
 if (require.main === module) {
   startServer();
 }
 
 // **Exportaciones para Testing**
+// Exportar un objeto con TODAS las propiedades referenciadas correctamente
 module.exports = {
     app: app,
     CAPACIDAD_MAXIMA: CAPACIDAD_MAXIMA,
     initializeDatabase: initializeDatabase,
     openDatabase: openDatabase 
 };
-// ¡NUEVO! Exportar la función open para que el test pueda abrir la DB
-
-
-
-
-
-
-
-
-
