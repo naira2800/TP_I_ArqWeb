@@ -209,5 +209,5 @@ describe('API Endpoints Testing', () => {
         expect(clase2).toHaveProperty('alumnos_inscritos');
         expect(clase2.alumnos_inscritos.length).toBe(1); // Alumno 1
         expect(clase2.alumnos_inscritos[0]).toHaveProperty('nombres');
-    });
+});
 });
