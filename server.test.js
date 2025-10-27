@@ -64,6 +64,7 @@ describe('API Endpoints Testing', () => {
                  expect(clase.inscriptos).toBe(0);
             }
     });
+});
 
     // Test 2: POST /api/reservar - Creación de nuevo alumno e inscripciones
     test('POST /api/reservar debería crear un nuevo alumno y registrar inscripciones', async () => {
