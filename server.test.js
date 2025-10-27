@@ -10,7 +10,7 @@ const request = require('supertest');
 //   CAPACIDAD_MAXIMA: CAPACIDAD_MAXIMA
 // };
 
-const { app, initializeDatabase, CAPACIDAD_MAXIMA } = require('./server'); 
+const { app, initializeDatabase, CAPACIDAD_MAXIMA, openDatabase } = require('./server'); 
 const AUTH_TOKEN = 'ADMIN_TOKEN_SECRETO'; // Debe coincidir con el valor en server.js
 
 let testServer; // Variable para almacenar la instancia del servidor HTTP
@@ -208,6 +208,7 @@ describe('API Endpoints Testing', () => {
     });
 
 });
+
 
 
 
