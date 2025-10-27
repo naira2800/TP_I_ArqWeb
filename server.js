@@ -11,6 +11,10 @@ const PORT = 3000;
 const DB_PATH = path.join(__dirname, 'yoga.db');
 const CAPACIDAD_MAXIMA = 6;
 
+// Variables para la conexión y el servidor (usadas por startServer/testing)
+let db; 
+let server; 
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -41,107 +45,82 @@ const INITIAL_SQL_SCHEMA = `
     capacidad INTEGER NOT NULL DEFAULT ${CAPACIDAD_MAXIMA}
   );
 
-  -- Crear tabla de relación N:M
+  -- Crear tabla de relación (muchos a muchos)
   CREATE TABLE alumnos_clases (
     alumno_id INTEGER,
     clase_id INTEGER,
+    fecha_inscripcion DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (alumno_id, clase_id),
     FOREIGN KEY (alumno_id) REFERENCES alumnos(id_alumno) ON DELETE CASCADE,
     FOREIGN KEY (clase_id) REFERENCES horario_clases(id_clase) ON DELETE CASCADE
   );
 
-  -- Inserción de datos iniciales para la tabla alumnos (5 columnas)
-  INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES ('Leandro', 'Pérez', '11678443', 'leandro.perez@icloud.com', '54');
-  INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES ('Daiana', 'Martínez', '55412533', 'daiana.martinez@icloud.com', '54');
-  INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES ('María', 'Díaz', '24672546', 'maria.diaz@outlook.com', '54');
-  INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES ('Micaela', 'Ramos', '49544950', 'micaela.ramos@yahoo.com', '54');
+  -- INSERTS de la Data Inicial (similar a yoga.sql)
+  -- Clases (total 26)
+  INSERT INTO horario_clases (dia, hora, clase) VALUES
+    ('lunes', '09:00:00', 'HATHA YOGA'),
+    ('lunes', '10:00:00', 'PILATES'),
+    ('lunes', '17:00:00', 'ASHTANGA YOGA'),
+    ('lunes', '18:00:00', 'ACROYOGA'),
+    ('lunes', '19:00:00', 'PILATES'),
+    ('lunes', '20:00:00', 'HATHA YOGA'),
+    ('martes', '09:00:00', 'ASHTANGA YOGA'),
+    ('martes', '10:00:00', 'HATHA YOGA'),
+    ('martes', '17:00:00', 'PILATES'),
+    ('martes', '18:00:00', 'ACROYOGA'),
+    ('martes', '19:00:00', 'HATHA YOGA'),
+    ('martes', '20:00:00', 'PILATES'),
+    ('miércoles', '09:00:00', 'PILATES'),
+    ('miércoles', '10:00:00', 'HATHA YOGA'),
+    ('miércoles', '16:00:00', 'PILATES'),
+    ('miércoles', '18:00:00', 'ASHTANGA YOGA'),
+    ('miércoles', '19:00:00', 'PILATES'),
+    ('miércoles', '20:00:00', 'HATHA YOGA'),
+    ('jueves', '09:00:00', 'ACROYOGA'),
+    ('jueves', '10:00:00', 'PILATES EXTREME'),
+    ('jueves', '17:00:00', 'HATHA YOGA'),
+    ('jueves', '18:00:00', 'PILATES EXTREME'),
+    ('viernes', '09:00:00', 'PILATES'),
+    ('viernes', '15:00:00', 'ASHTANGA YOGA'),
+    ('viernes', '16:00:00', 'HATHA YOGA'),
+    ('sábado ', '10:00:00', 'PILATES'); -- Nota: Sábado tiene un espacio final en la data original
 
-  -- Inserción de datos iniciales para la tabla de clases
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('lunes', '10:00:00', 'HATHA YOGA');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('lunes', '17:00:00', 'HATHA YOGA');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('lunes', '18:00:00', 'ACROYOGA');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('lunes', '19:00:00', 'PILATES');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('lunes', '20:00:00', 'HATHA YOGA');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('martes', '10:00:00', 'PILATES EXTREME');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('martes', '15:00:00', 'ASHTANGA YOGA');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('martes', '16:00:00', 'ACROYOGA');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('martes', '17:00:00', 'PILATES');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('martes', '18:00:00', 'PILATES EXTREME');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('miércoles', '10:00:00', 'HATHA YOGA');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('miércoles', '16:00:00', 'PILATES');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('miércoles', '18:00:00', 'ASHTANGA YOGA');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('miércoles', '19:00:00', 'PILATES');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('miércoles', '20:00:00', 'HATHA YOGA');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('jueves', '09:00:00', 'ACROYOGA');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('jueves', '10:00:00', 'PILATES EXTREME');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('jueves', '17:00:00', 'HATHA YOGA');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('jueves', '18:00:00', 'PILATES EXTREME');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('viernes', '09:00:00', 'PILATES');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('viernes', '15:00:00', 'ASHTANGA YOGA');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('viernes', '16:00:00', 'PILATES');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('viernes', '17:00:00', 'PILATES');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('viernes', '18:00:00', 'ACROYOGA');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('viernes', '19:00:00', 'PILATES');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('viernes', '20:00:00', 'HATHA YOGA');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('sábado', '09:00:00', 'YOGA+MEDITACIÓN');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('sábado', '10:00:00', 'ACROYOGA');
-  INSERT INTO horario_clases (dia, hora, clase) VALUES ('sábado', '11:00:00', 'PILATES');
+  -- Alumnos de prueba
+  INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES
+    ('Juan', 'Pérez', '12345678', 'juan.perez@test.com', '1122334455'), -- ID 1
+    ('Ana', 'Gómez', '87654321', 'ana.gomez@test.com', '9988776655'); -- ID 2
 
-  -- Inserción de inscripciones iniciales (para tests)
+  -- Inscripciones de prueba (Algunas clases llenas para testing)
+  -- Clase 1 (Lunes 09:00) - Llenarla con 2
   INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (1, 1);
   INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (2, 1);
-  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (3, 2);
-  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (4, 3);
+  
+  -- Clase 2 (Lunes 10:00) - 1 alumno
+  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (1, 2);
+
+  -- Clase 3 (Lunes 17:00) - 1 alumno
+  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (2, 3);
+
+  -- Clase 4 (Lunes 18:00) - 1 alumno
+  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (1, 4);
+  
+  -- Clase 10 (Martes 18:00) - 1 alumno
+  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (2, 10);
+  
+  -- Clase 26 (Sábado 10:00) - 1 alumno
+  INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (1, 26);
+
 `;
 
-
-let db;
-
-/**
- * Inicializa la base de datos SQLite.
- * Si la tabla 'alumnos' no existe o está vacía, crea las tablas e inserta los datos iniciales.
- */
+// Función para inicializar la base de datos
 async function initializeDatabase() {
-  try {
-    db = await open({
-      filename: DB_PATH,
-      driver: sqlite3.Database,
-    });
-    console.log('Base de datos SQLite conectada.');
-
-    // Verificar si la base de datos necesita ser inicializada
-    // Intentamos hacer un conteo en una tabla clave. Si falla, es que no existe.
-    const result = await db.get("SELECT COUNT(*) AS count FROM alumnos");
-
-    if (result.count === 0) {
-      // Las tablas existen pero están vacías o la base de datos es nueva
-      await db.exec(INITIAL_SQL_SCHEMA);
-      console.log('Base de datos inicializada y poblada con datos por defecto.');
-    } else {
-      console.log('Base de datos ya poblada. Usando datos existentes.');
-    }
-  } catch (err) {
-    // Si la consulta inicial falla (ej: la tabla no existe), ejecutamos el esquema completo.
-    if (err.code === 'SQLITE_ERROR' && err.message.includes('no such table')) {
-      try {
-        await db.exec(INITIAL_SQL_SCHEMA);
-        console.log('Base de datos creada, inicializada y poblada con datos por defecto.');
-      } catch (execErr) {
-        console.error('Error al ejecutar el esquema inicial de la base de datos:', execErr);
-      }
-    } else {
-      console.error('Error al inicializar/conectar la base de datos:', err);
-    }
-  }
+  await db.exec(INITIAL_SQL_SCHEMA);
+  console.log('[DB] Base de datos inicializada con esquema y data de prueba.');
 }
 
-// --- Endpoints de la API RESTful ---
+// --- Rutas de la API ---
 
-/**
- * GET /api/clases
- * Obtiene la grilla de horarios con el conteo de alumnos inscritos.
- * Nivel 2 REST: Incluye conteos dinámicos (metadata).
- */
+// 1. GET /api/clases - Horario con cupos
 app.get('/api/clases', async (req, res) => {
   try {
     const clases = await db.all(`
@@ -151,13 +130,13 @@ app.get('/api/clases', async (req, res) => {
         hc.hora,
         hc.clase,
         hc.capacidad,
-        COALESCE(COUNT(ac.alumno_id), 0) AS inscriptos
+        COUNT(ac.alumno_id) AS inscriptos
       FROM
         horario_clases hc
       LEFT JOIN
         alumnos_clases ac ON hc.id_clase = ac.clase_id
       GROUP BY
-        hc.id_clase
+        hc.id_clase, hc.dia, hc.hora, hc.clase, hc.capacidad
       ORDER BY
         CASE hc.dia
           WHEN 'lunes' THEN 1
@@ -165,131 +144,152 @@ app.get('/api/clases', async (req, res) => {
           WHEN 'miércoles' THEN 3
           WHEN 'jueves' THEN 4
           WHEN 'viernes' THEN 5
-          WHEN 'sábado' THEN 6
+          WHEN 'sábado ' THEN 6 -- Cuidado con el espacio en 'sábado '
           ELSE 7
         END,
         hc.hora;
     `);
+
     res.json(clases);
   } catch (error) {
-    console.error('Error al obtener clases:', error);
-    res.status(500).json({ error: 'Error interno al obtener los horarios de clases.' });
+    console.error('Error al obtener el horario de clases:', error);
+    res.status(500).json({ error: 'Error interno al cargar los horarios.' });
   }
 });
 
-/**
- * POST /api/reservar
- * Inscribe un nuevo alumno o uno existente a una o varias clases.
- * Implementa la lógica de cupos y la transacción de datos (ABM/CRUD: Create).
- */
+// 2. POST /api/reservar - Reservar Clases
 app.post('/api/reservar', async (req, res) => {
   const { nombres, apellidos, dni, email, telefono, clasesSeleccionadas } = req.body;
 
   if (!nombres || !apellidos || !dni || !email || !clasesSeleccionadas || clasesSeleccionadas.length === 0) {
-    return res.status(400).json({ error: 'Faltan campos obligatorios o clases seleccionadas.' });
+    return res.status(400).json({ error: 'Faltan campos obligatorios para la reserva.' });
   }
 
   try {
-    let alumnoId;
+    // 1. Obtener o Crear el Alumno
+    let alumno = await db.get('SELECT id_alumno FROM alumnos WHERE dni = ?', [dni]);
 
-    // 1. Verificar si el alumno ya existe por DNI o Email
-    let existingAlumno = await db.get('SELECT id_alumno FROM alumnos WHERE dni = ? OR email = ?', [dni, email]);
-
-    if (existingAlumno) {
-      alumnoId = existingAlumno.id_alumno;
-    } else {
-      // 2. Insertar nuevo alumno si no existe
+    if (!alumno) {
+      // Crear nuevo alumno
       const result = await db.run(
         'INSERT INTO alumnos (nombres, apellidos, dni, email, telefono) VALUES (?, ?, ?, ?, ?)',
         [nombres, apellidos, dni, email, telefono]
       );
-      alumnoId = result.lastID;
+      alumno = { id_alumno: result.lastID };
+      console.log(`[RESERVA] Nuevo alumno creado: ${nombres} ${apellidos} (ID: ${alumno.id_alumno})`);
     }
 
-    // 3. Verificar cupos y realizar inscripciones
-    const inscripcionesExitosas = [];
+    const alumnoId = alumno.id_alumno;
+    const clasesExitosas = [];
     const clasesCompletas = [];
-    const clasesYaInscritas = [];
 
-    for (const claseId of clasesSeleccionadas) {
-      const claseInfo = await db.get(`
+    // 2. Procesar las Reservas
+    for (const claseIdStr of clasesSeleccionadas) {
+      const claseId = parseInt(claseIdStr);
+
+      // A. Verificar cupo actual
+      const cupo = await db.get(`
         SELECT
-          hc.capacidad,
-          hc.clase,
+          hc.id_clase,
           hc.dia,
           hc.hora,
+          hc.clase,
+          hc.capacidad,
           COUNT(ac.alumno_id) AS inscriptos
-        FROM horario_clases hc
-        LEFT JOIN alumnos_clases ac ON hc.id_clase = ac.clase_id
-        WHERE hc.id_clase = ?
-        GROUP BY hc.id_clase;
+        FROM
+          horario_clases hc
+        LEFT JOIN
+          alumnos_clases ac ON hc.id_clase = ac.clase_id
+        WHERE
+          hc.id_clase = ?
+        GROUP BY
+          hc.id_clase, hc.dia, hc.hora, hc.clase, hc.capacidad;
       `, [claseId]);
 
-      // Verificar si ya está inscrito
-      const yaInscrito = await db.get('SELECT 1 FROM alumnos_clases WHERE alumno_id = ? AND clase_id = ?', [alumnoId, claseId]);
+      if (!cupo) {
+        console.warn(`[RESERVA] Clase ID ${claseId} no encontrada.`);
+        continue;
+      }
+      
+      const claseNombre = `${cupo.clase} (${cupo.dia} ${cupo.hora})`;
 
-      if (yaInscrito) {
-        clasesYaInscritas.push(`${claseInfo.clase} (${claseInfo.dia} ${claseInfo.hora})`);
+      // B. Chequear si ya está inscripto
+      const yaInscripto = await db.get(
+        'SELECT 1 FROM alumnos_clases WHERE alumno_id = ? AND clase_id = ?',
+        [alumnoId, claseId]
+      );
+
+      if (yaInscripto) {
+        // Ignorar si ya está inscripto, no es un error
+        console.log(`[RESERVA] Alumno ${alumnoId} ya estaba inscripto a Clase ${claseId}.`);
         continue;
       }
 
-      // Verificar cupo
-      if (claseInfo.inscriptos >= claseInfo.capacidad) {
-        clasesCompletas.push(`${claseInfo.clase} (${claseInfo.dia} ${claseInfo.hora})`);
-        continue;
+      // C. Verificar si hay cupo
+      if (cupo.inscriptos < cupo.capacidad) {
+        // Inscribir al alumno
+        await db.run(
+          'INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (?, ?)',
+          [alumnoId, claseId]
+        );
+        clasesExitosas.push(claseNombre);
+        console.log(`[RESERVA] Inscripción exitosa: Alumno ${alumnoId} a Clase ${claseId}`);
+      } else {
+        // Clase llena
+        clasesCompletas.push(claseNombre);
+        console.log(`[RESERVA] Clase ID ${claseId} completa: ${cupo.inscriptos}/${cupo.capacidad}`);
       }
-
-      // Inscribir al alumno
-      await db.run('INSERT INTO alumnos_clases (alumno_id, clase_id) VALUES (?, ?)', [alumnoId, claseId]);
-      inscripcionesExitosas.push(`${claseInfo.clase} (${claseInfo.dia} ${claseInfo.hora})`);
     }
 
-    // 4. Generar respuesta
-    const response = {
-      message: 'Proceso de reserva completado.',
+    // 3. Devolver la Respuesta al Cliente
+    let statusCode = 201; // Estado por defecto: Creado
+    let message = 'Proceso de reserva completado.';
+
+    if (clasesExitosas.length === 0 && clasesCompletas.length > 0) {
+      statusCode = 200; // No se creó nada, solo hubo errores de cupo
+      message = 'Las clases seleccionadas estaban completas o ya reservadas.';
+    } else if (clasesCompletas.length > 0) {
+      statusCode = 200; // Éxitos parciales, devolver 200 con alerta
+      message = 'Reserva(s) exitosa(s), pero algunas clases estaban completas.';
+    }
+
+    res.status(statusCode).json({
+      message: message,
       alumnoId: alumnoId,
-      exitosas: inscripcionesExitosas,
+      exitosas: clasesExitosas,
       completas: clasesCompletas,
-      yaInscritas: clasesYaInscritas,
-    };
-
-    if (clasesCompletas.length > 0) {
-      // Devolver 200 OK con mensaje de advertencia
-      return res.status(200).json(response);
-    }
-
-    res.status(201).json(response);
+    });
 
   } catch (error) {
+    // Manejar errores de DNI/Email duplicado si el alumno era nuevo
+    if (error.code === 'SQLITE_CONSTRAINT') {
+      return res.status(409).json({ error: 'El DNI o Email ya se encuentran registrados por otro alumno. Intente nuevamente.' });
+    }
     console.error('Error en el proceso de reserva:', error);
     res.status(500).json({ error: 'Error interno del servidor al procesar la reserva.' });
   }
 });
 
-/**
- * GET /api/alumnos
- * Obtiene la lista completa de alumnos. (ABM/CRUD: Read)
- */
+
+// 3. GET /api/alumnos - Reporte de Alumnos (CRUD LIST)
 app.get('/api/alumnos', async (req, res) => {
   try {
     const alumnos = await db.all('SELECT * FROM alumnos ORDER BY apellidos, nombres');
     res.json(alumnos);
   } catch (error) {
-    console.error('Error al obtener alumnos:', error);
-    res.status(500).json({ error: 'Error interno al obtener la lista de alumnos.' });
+    console.error('Error al obtener la lista de alumnos:', error);
+    res.status(500).json({ error: 'Error interno del servidor.' });
   }
 });
 
-/**
- * PUT /api/alumnos/:id
- * Actualiza los datos de un alumno. (ABM/CRUD: Update)
- */
+
+// 4. PUT /api/alumnos/:id - Actualizar Alumno (CRUD UPDATE)
 app.put('/api/alumnos/:id', async (req, res) => {
   const { id } = req.params;
   const { nombres, apellidos, dni, email, telefono } = req.body;
 
   if (!nombres || !apellidos || !dni || !email) {
-    return res.status(400).json({ error: 'Faltan campos obligatorios para la actualización.' });
+    return res.status(400).json({ error: 'Faltan campos obligatorios para la actualización (Nombres, Apellidos, DNI, Email).' });
   }
 
   try {
@@ -299,53 +299,51 @@ app.put('/api/alumnos/:id', async (req, res) => {
     );
 
     if (result.changes === 0) {
-      return res.status(404).json({ error: 'Alumno no encontrado o sin cambios.' });
+      return res.status(404).json({ error: 'Alumno no encontrado para actualizar.' });
     }
 
-    res.json({ message: 'Alumno actualizado exitosamente.' });
-
+    res.status(200).json({ message: 'Alumno actualizado exitosamente.' });
   } catch (error) {
-    console.error('Error al actualizar alumno:', error);
-    res.status(500).json({ error: 'Error interno del servidor al actualizar el alumno.' });
+    if (error.code === 'SQLITE_CONSTRAINT') {
+      return res.status(409).json({ error: 'El DNI o Email ya está registrado por otro alumno.' });
+    }
+    console.error(`Error al actualizar alumno ${id}:`, error);
+    res.status(500).json({ error: 'Error interno al actualizar el alumno.' });
   }
 });
 
-/**
- * DELETE /api/alumnos/:id
- * Elimina un alumno y todas sus inscripciones asociadas (debido a CASCADE). (ABM/CRUD: Delete)
- * RESTRICCIÓN DE SEGURIDAD: Requiere el header Authorization.
- */
+
+// 5. DELETE /api/alumnos/:id - Eliminar Alumno (CRUD DELETE)
+// Se requiere un token de autorización simple para esta operación
 app.delete('/api/alumnos/:id', async (req, res) => {
-  // RESTRICCIÓN DE SEGURIDAD: Verificar autenticación simulada
-  const authHeader = req.headers.authorization;
-  if (!authHeader || authHeader !== 'ADMIN_TOKEN_SECRETO') {
-    return res.status(401).json({ error: 'Acceso no autorizado. Se requiere autenticación para eliminar alumnos.' });
+  const { id } = req.params;
+  const authToken = req.headers.authorization;
+  const ADMIN_TOKEN = 'ADMIN_TOKEN_SECRETO'; // Token simple para demostración
+
+  if (authToken !== ADMIN_TOKEN) {
+    return res.status(403).json({ error: 'Acceso denegado. Se requiere autenticación de administrador.' });
   }
 
-  const { id } = req.params;
-
   try {
+    // Alumnos_clases tiene ON DELETE CASCADE, por lo que solo borramos al alumno
     const result = await db.run('DELETE FROM alumnos WHERE id_alumno = ?', [id]);
 
     if (result.changes === 0) {
-      return res.status(404).json({ error: 'Alumno no encontrado.' });
+      return res.status(404).json({ error: 'Alumno no encontrado para eliminar.' });
     }
 
-    res.json({ message: 'Alumno eliminado exitosamente (incluidas sus reservas).' });
-
+    res.status(200).json({ message: 'Alumno eliminado exitosamente (incluidas sus reservas).' });
   } catch (error) {
-    console.error('Error al eliminar alumno:', error);
-    res.status(500).json({ error: 'Error interno del servidor al eliminar el alumno.' });
+    console.error(`Error al eliminar alumno ${id}:`, error);
+    res.status(500).json({ error: 'Error interno al eliminar el alumno.' });
   }
 });
 
-/**
- * GET /api/reporte/detalle
- * Nuevo endpoint para obtener la data del reporte PDF: clases con sus alumnos.
- */
+
+// 6. GET /api/reporte/detalle - Reporte Detallado de Clases
 app.get('/api/reporte/detalle', async (req, res) => {
   try {
-    // 1. Obtener todas las clases con el conteo de alumnos
+    // 1. Obtener todas las clases con el conteo de inscriptos
     const clases = await db.all(`
       SELECT
         hc.id_clase,
@@ -353,18 +351,18 @@ app.get('/api/reporte/detalle', async (req, res) => {
         hc.hora,
         hc.clase,
         hc.capacidad,
-        COALESCE(COUNT(ac.alumno_id), 0) AS inscriptos
+        COUNT(ac.alumno_id) AS inscriptos
       FROM
         horario_clases hc
       LEFT JOIN
         alumnos_clases ac ON hc.id_clase = ac.clase_id
       GROUP BY
-        hc.id_clase
+        hc.id_clase, hc.dia, hc.hora, hc.clase, hc.capacidad
       ORDER BY
         hc.dia, hc.hora;
     `);
 
-    // 2. Para cada clase, obtener la lista de alumnos inscritos
+    // 2. Para cada clase, adjuntar la lista de alumnos inscritos
     for (const clase of clases) {
       const alumnos = await db.all(`
         SELECT
@@ -405,15 +403,34 @@ app.get('*', (req, res) => {
   });
 });
 
-// --- Inicio del Servidor ---
+
+// --- Iniciar el Servidor ---
 async function startServer() {
-  await initializeDatabase();
-  app.listen(PORT, () => {
-    console.log(`Servidor API escuchando en http://localhost:${PORT}`);
-    console.log(`Frontend disponible en http://localhost:${PORT}/`);
-  });
+  try {
+    // Abrir la base de datos (se crea si no existe)
+    db = await open({
+      filename: DB_PATH,
+      driver: sqlite3.Database
+    });
+
+    // Inicializar el esquema de la base de datos
+    await initializeDatabase();
+
+    // Iniciar el servidor
+    server = app.listen(PORT, () => {
+      console.log(`\n\n[SERVER] Servidor corriendo en http://localhost:${PORT}`);
+    });
+
+  } catch (err) {
+    console.error(`\n\n[ERROR] No se pudo iniciar el servidor o conectar a la base de datos: ${err.message}`);
+    process.exit(1);
+  }
 }
 
+// Iniciar
 startServer();
-module.exports = app; // Exportar app para el testing
 
+// **Exportaciones para Testing**
+// Exportamos la app y la constante CAPACIDAD_MAXIMA para que 'server.test.js' pueda utilizarlos.
+module.exports = app;
+module.exports.CAPACIDAD_MAXIMA = CAPACIDAD_MAXIMA;
