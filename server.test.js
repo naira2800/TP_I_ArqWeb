@@ -17,6 +17,9 @@ let testServer; // Variable para almacenar la instancia del servidor HTTP
 
 // Configuramos la base de datos y levantamos el servidor antes de todas las pruebas
 beforeAll(async () => {
+    // 1. ABRIR la conexión a la base de datos (necesario antes de inicializar)
+    await openDatabase();
+    
     // 1. Inicializar la base de datos (crea o usa yoga.db)
     await initializeDatabase();
     
@@ -205,5 +208,6 @@ describe('API Endpoints Testing', () => {
     });
 
 });
+
 
 
