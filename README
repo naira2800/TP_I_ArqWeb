@@ -1,1 +1,13 @@
 TP Integrador Arquitectura Web
+
+
+
+README.md: Instrucciones para el build y ejecución del proyecto (Punto 4.1).
+
+server.js: El backend en Node.js/Express, que incluye la lógica de negocio, la API RESTful (Nivel 2), y la persistencia en memoria con los datos iniciales de la base de datos (Punto 2).
+
+server.test.js: Pruebas a los endpoints de la API utilizando la librería jest (Punto 3.1).
+
+package.json: Definición del proyecto, dependencias y scripts de ejecución (Punto 4.1).
+
+App.jsx: El frontend en React, que implementará la cuadrícula de horarios, el formulario de reserva, la pantalla de Reporte (Punto 1.2), y el CRUD para la gestión de alumnos (Punto 1.1).
