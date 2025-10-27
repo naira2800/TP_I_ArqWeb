@@ -1,9 +1,77 @@
-// ... dentro de <script type="text/babel">
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yoga & Pilates - Horarios y Reservas</title>
+    <!-- Carga de Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Carga de React, ReactDOM, y Babel para JSX en el navegador -->
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Carga de librerías para Reporte PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <style>
+        .full-class {
+            text-decoration: line-through;
+        }
+        /* Color Paleta: Neutros cálidos y acentos sutiles */
+        .header-bg { background-color: #4a5568; } /* Gris oscuro */
+        .main-bg { background-color: #f7fafc; } /* Blanco casi roto */
+        .card-bg { background-color: #ffffff; } /* Blanco */
+        .accent-color { color: #8a2be2; } /* Violeta (sutil) */
+    </style>
+</head>
+<body class="main-bg font-sans antialiased min-h-screen">
+
+<div id="root"></div>
+
+<script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+    const API_BASE_URL = 'http://localhost:3000/api';
+    
+    // Simulación de Autenticación (para DELETE)
+    const AUTH_TOKEN = 'ADMIN_TOKEN_SECRETO'; 
+
+    // --- Componente Utilidad: Notificación de Mensajes ---
+    const Notification = ({ message, type, onClose }) => {
+        if (!message) return null;
+        
+        let bgColor;
+        switch (type) {
+            case 'success': bgColor = 'bg-green-500'; break;
+            case 'error': bgColor = 'bg-red-500'; break;
+            case 'warning': bgColor = 'bg-yellow-500'; break;
+            default: bgColor = 'bg-blue-500';
+        }
+
+        return (
+            <div className={`fixed top-4 right-4 p-4 text-white rounded shadow-lg ${bgColor} z-50 transition-opacity duration-300`}>
+                <p className="font-semibold">{message}</p>
+                <button onClick={onClose} className="ml-4 text-lg font-bold">&times;</button>
+            </div>
+        );
+    };
 
     // --- Componente 1: Grilla de Horarios y Reserva ---
 
     const HorariosReservas = ({ goToScreen }) => {
-// ...
+        const [clases, setClases] = useState([]);
+        const [clasesSeleccionadas, setClasesSeleccionadas] = useState([]);
+        const [showForm, setShowForm] = useState(false);
+        const [formData, setFormData] = useState({
+            nombres: '',
+            apellidos: '',
+            dni: '',
+            email: '',
+            telefono: ''
+        });
+        const [message, setMessage] = useState(null);
+        const [messageType, setMessageType] = useState('info');
+
         const fetchClases = useCallback(async () => {
             try {
                 const response = await fetch(`${API_BASE_URL}/clases`);
@@ -12,7 +80,7 @@
                 
                 // Agrupar clases por día para la visualización en cuadrícula
                 const grouped = data.reduce((acc, clase) => {
-                    // **CORRECCIÓN 1: Manejar el día con trim() para eliminar espacios en blanco (ej. 'sábado ')**
+                    // Mapeo para manejar la clave de día inconsistente del SQL
                     const diaKey = clase.dia.trim().charAt(0).toUpperCase() + clase.dia.trim().slice(1);
                     if (!acc[diaKey]) {
                         acc[diaKey] = [];
@@ -23,7 +91,13 @@
                 
                 // Ordenar días de la semana
                 const orderedDays = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-// ...
+                const sortedGrouped = orderedDays.reduce((acc, day) => {
+                    if (grouped[day]) {
+                        acc[day] = grouped[day];
+                    }
+                    return acc;
+                }, {});
+
                 setClases(sortedGrouped);
             } catch (error) {
                 console.error(error);
@@ -32,48 +106,593 @@
             }
         }, []);
 
-// ...
+        useEffect(() => {
+            fetchClases();
+        }, [fetchClases]);
+
+        const toggleSeleccion = (claseId) => {
+            if (clasesSeleccionadas.includes(claseId)) {
+                setClasesSeleccionadas(clasesSeleccionadas.filter(id => id !== claseId));
+            } else {
+                setClasesSeleccionadas([...clasesSeleccionadas, claseId]);
+            }
+        };
+
+        const handleReservarClick = () => {
+            if (clasesSeleccionadas.length === 0) {
+                setMessage('Selecciona al menos una clase para reservar.');
+                setMessageType('warning');
+                return;
+            }
+            setShowForm(true);
+        };
+
+        const handleFormChange = (e) => {
+            setFormData({ ...formData, [e.target.name]: e.target.value });
+        };
+        
+        const resetFormState = () => {
+            setFormData({ nombres: '', apellidos: '', dni: '', email: '', telefono: '' });
+            setClasesSeleccionadas([]);
+            setShowForm(false);
+        };
+
+        const handleSubmitReserva = async (e) => {
+            e.preventDefault();
+
+            // Validación mínima para el formulario de reserva
+            if (!formData.nombres || !formData.apellidos || !formData.dni || !formData.email) {
+                setMessage('Los campos Nombre, Apellido, DNI y Email son obligatorios.');
+                setMessageType('error');
+                return;
+            }
+            if (clasesSeleccionadas.length === 0) {
+                setMessage('Debes seleccionar al menos una clase.');
+                setMessageType('error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/reservar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...formData, clasesSeleccionadas })
+                });
+
+                const result = await response.json();
+                
+                let successMsg = `Reserva exitosa. ${result.exitosas.length} clase(s) reservada(s).`;
+                let warningMsgs = [];
+                
+                if (result.completas && result.completas.length > 0) {
+                    warningMsgs.push(`Clase(s) completa(s) no reservada(s): ${result.completas.join(', ')}.`);
+                }
+                if (result.yaInscritas && result.yaInscritas.length > 0) {
+                    warningMsgs.push(`Ya estabas inscrito en: ${result.yaInscritas.join(', ')}.`);
+                }
+                
+                if (warningMsgs.length > 0) {
+                    setMessage(`${successMsg} Advertencias: ${warningMsgs.join(' ')}`);
+                    setMessageType('warning');
+                } else {
+                    setMessage(successMsg);
+                    setMessageType('success');
+                }
+
+                resetFormState();
+                fetchClases(); // Actualizar la grilla
+            } catch (error) {
+                console.error('Error al guardar la reserva:', error);
+                setMessage('Error en el servidor al intentar la reserva.');
+                setMessageType('error');
+            }
+        };
         
         const renderClaseBox = (clase) => {
             const isSelected = clasesSeleccionadas.includes(clase.id_clase);
             
-            // **CORRECCIÓN 2: Obtener la capacidad máxima de la clase, no hardcodear 6.**
-            const capacidad = clase.capacidad; 
+            // Lógica de cupos: Capacidad es 6
+            const capacidad = 6;
             const inscriptos = clase.inscriptos;
             
             const isFull = inscriptos >= capacidad;
             const isLastSpot = inscriptos === capacidad - 1;
 
             let bgColor = 'bg-card-bg';
-// ...
+            let borderColor = 'border-gray-200';
+            let cursor = 'cursor-pointer';
+            let textStyle = '';
             
+            // Lógica de Colores: Rojo/Tachado (Completo), Amarillo (Último Cupo)
+            if (isFull) {
+                bgColor = 'bg-red-200';
+                borderColor = 'border-red-500';
+                textStyle = 'full-class';
+                cursor = 'cursor-not-allowed';
+            } else if (isLastSpot) {
+                bgColor = 'bg-yellow-200';
+                borderColor = 'border-yellow-500';
+            } else if (isSelected) {
+                bgColor = 'bg-blue-300';
+                borderColor = 'border-blue-700';
+            }
+
             const handleClick = () => {
                 if (!isFull) {
                     toggleSeleccion(clase.id_clase);
                 } else {
-                    // **CORRECCIÓN 3: Usar la capacidad variable en el mensaje de error**
-                    setMessage(`La clase de ${clase.clase} a las ${clase.hora.slice(0, 5)} está completa (${inscriptos}/${capacidad}).`);
+                    setMessage(`La clase de ${clase.clase} a las ${clase.hora.slice(0, 5)} está completa (6/6).`);
                     setMessageType('warning');
                 }
             };
             
             return (
-// ...
+                <div 
+                    key={clase.id_clase} 
+                    className={`p-3 text-center rounded-lg shadow-md border-2 ${bgColor} ${borderColor} hover:shadow-lg transition duration-200 ${cursor}`}
+                    onClick={handleClick}
+                >
+                    <p className={`font-bold ${textStyle}`}>{clase.clase}</p>
                     <p className="text-sm">{clase.hora.slice(0, 5)}</p>
                     <p className={`text-xs mt-1 font-semibold ${isFull ? 'text-red-700' : isLastSpot ? 'text-yellow-700' : 'text-gray-700'}`}>
-                        {/* **CORRECCIÓN 4: Usar la capacidad variable en el mensaje de cupos** */}
                         {isFull ? 'COMPLETA' : `Cupos: ${inscriptos}/${capacidad}`}
                     </p>
                 </div>
             );
         };
         
-// ...
+        const renderHorariosGrid = () => (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 lg:grid-cols-7 gap-4 p-4 md:p-8">
+                {Object.entries(clases).map(([dia, clasesDia]) => (
+                    <div key={dia} className="flex flex-col space-y-3">
+                        <h3 className="text-center font-bold text-lg text-gray-800 border-b pb-2 mb-2">{dia}</h3>
+                        {clasesDia.map(renderClaseBox)}
+                    </div>
+                ))}
+            </div>
+        );
+
+        const renderReservaForm = () => (
+            <div className="mt-8 p-6 bg-card-bg rounded-lg shadow-xl max-w-lg mx-auto">
+                <h3 className="text-2xl font-bold mb-4 text-gray-800">Finalizar Reserva</h3>
+                <p className="text-sm text-gray-600 mb-4">Clases seleccionadas ({clasesSeleccionadas.length}):</p>
+                <form onSubmit={handleSubmitReserva} className="space-y-4">
+                    {/* Campos del Alumno */}
+                    <input type="text" name="nombres" placeholder="Nombres" value={formData.nombres} onChange={handleFormChange} className="w-full p-3 border border-gray-300 rounded focus:ring-accent-color focus:border-accent-color" required />
+                    <input type="text" name="apellidos" placeholder="Apellidos" value={formData.apellidos} onChange={handleFormChange} className="w-full p-3 border border-gray-300 rounded focus:ring-accent-color focus:border-accent-color" required />
+                    <input type="text" name="dni" placeholder="DNI (Único)" value={formData.dni} onChange={handleFormChange} className="w-full p-3 border border-gray-300 rounded focus:ring-accent-color focus:border-accent-color" required />
+                    <input type="email" name="email" placeholder="Email (Único)" value={formData.email} onChange={handleFormChange} className="w-full p-3 border border-gray-300 rounded focus:ring-accent-color focus:border-accent-color" required />
+                    <input type="tel" name="telefono" placeholder="Teléfono (Opcional)" value={formData.telefono} onChange={handleFormChange} className="w-full p-3 border border-gray-300 rounded focus:ring-accent-color focus:border-accent-color" />
+                    
+                    {/* Botones de Acción */}
+                    <div className="flex justify-between space-x-4 pt-4">
+                        <button type="button" onClick={() => setShowForm(false)} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition duration-150">
+                            Volver
+                        </button>
+                        <button type="submit" className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-150">
+                            Guardar Inscripción
+                        </button>
+                    </div>
+                </form>
+            </div>
+        );
+
         return (
-// ...
+            <div id="horarios-reservas">
+                <header className="header-bg text-white text-center py-6 shadow-md">
+                    <h2 className="text-3xl font-light">Horarios Disponibles</h2>
+                    <p className="text-sm mt-1">Selecciona las clases de interés. Máximo de 6 alumnos por clase.</p>
+                </header>
+
+                <div className="container mx-auto p-4 pt-8">
+                    {/* Renderiza el formulario si está activo, sino la grilla */}
+                    {showForm ? (
+                        renderReservaForm()
+                    ) : (
+                        <React.Fragment>
+                            {renderHorariosGrid()}
+                            
+                            <div className="flex justify-center mt-8 space-x-4">
+                                <button
+                                    onClick={handleReservarClick}
+                                    disabled={clasesSeleccionadas.length === 0}
+                                    className={`px-8 py-3 font-semibold rounded-full shadow-lg transition duration-200 
+                                        ${clasesSeleccionadas.length > 0
+                                            ? 'bg-accent-color text-white hover:bg-purple-700'
+                                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        }`}
+                                >
+                                    Reservar Clases Seleccionadas ({clasesSeleccionadas.length})
+                                </button>
+                            </div>
+                            
                             <p className="text-center text-sm text-gray-500 mt-4">
-                                {/* **CORRECCIÓN 5: Usar capacidad variable en el texto explicativo** */}
-                                <span className="text-red-600 font-bold">Rojo/Tachado</span>: Clase Completa | <span className="text-yellow-600 font-bold">Amarillo</span>: Último Cupo Disponible ({6-1}/6).
+                                <span className="text-red-600 font-bold">Rojo/Tachado</span>: Clase Completa | <span className="text-yellow-600 font-bold">Amarillo</span>: Último Cupo Disponible (5/6).
                             </p>
                         </React.Fragment>
-// ...
+                    )}
+                </div>
+                <Notification message={message} type={messageType} onClose={() => setMessage(null)} />
+            </div>
+        );
+    };
+
+    // --- Componente 2: Gestión de Alumnos (CRUD/ABM) ---
+
+    const GestionAlumnos = () => {
+        const [alumnos, setAlumnos] = useState([]);
+        const [editingAlumno, setEditingAlumno] = useState(null); // Alumno en edición
+        const [message, setMessage] = useState(null);
+        const [messageType, setMessageType] = useState('info');
+
+        const fetchAlumnos = useCallback(async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/alumnos`);
+                if (!response.ok) throw new Error('Error al cargar alumnos');
+                const data = await response.json();
+                setAlumnos(data);
+            } catch (error) {
+                console.error(error);
+                setMessage('Error al cargar la lista de alumnos.');
+                setMessageType('error');
+            }
+        }, []);
+
+        useEffect(() => {
+            fetchAlumnos();
+        }, [fetchAlumnos]);
+
+        const startEdit = (alumno) => {
+            setEditingAlumno({ ...alumno });
+        };
+        
+        const cancelEdit = () => {
+            setEditingAlumno(null);
+        };
+        
+        const handleEditChange = (e) => {
+            setEditingAlumno({ ...editingAlumno, [e.target.name]: e.target.value });
+        };
+
+        const saveEdit = async (e) => {
+            e.preventDefault();
+            if (!editingAlumno.id_alumno) return;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/alumnos/${editingAlumno.id_alumno}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(editingAlumno)
+                });
+
+                if (!response.ok) throw new Error('Error al actualizar');
+
+                setMessage('Alumno actualizado correctamente.');
+                setMessageType('success');
+                setEditingAlumno(null);
+                fetchAlumnos(); // Recargar lista
+            } catch (error) {
+                console.error('Error al guardar alumno:', error);
+                setMessage('Error al actualizar el alumno. DNI/Email podría estar duplicado.');
+                setMessageType('error');
+            }
+        };
+
+        const deleteAlumno = async (id) => {
+            // Nota: Usamos window.confirm para simular una caja de diálogo de confirmación, 
+            // aunque en entornos de iframe podría no funcionar como se espera, es la simulación estándar.
+            if (!window.confirm("¿Estás seguro de que deseas eliminar este alumno y todas sus reservas?")) return;
+
+            try {
+                // Se envía el token de autenticación simulado
+                const response = await fetch(`${API_BASE_URL}/alumnos/${id}`, {
+                    method: 'DELETE',
+                    headers: { 
+                        'Authorization': AUTH_TOKEN // SIMULACIÓN de credenciales de administrador
+                    }
+                });
+
+                if (response.status === 401) {
+                    setMessage('Error 401: No autorizado. La eliminación de alumnos requiere credenciales de administrador.');
+                    setMessageType('error');
+                    return;
+                }
+                if (!response.ok) throw new Error('Error en el servidor al eliminar');
+
+                setMessage('Alumno eliminado correctamente.');
+                setMessageType('success');
+                fetchAlumnos(); // Recargar lista
+            } catch (error) {
+                console.error('Error al eliminar alumno:', error);
+                setMessage('Error en el servidor al eliminar.');
+                setMessageType('error');
+            }
+        };
+
+        const renderAlumnoRow = (alumno) => (
+            <tr key={alumno.id_alumno} className="border-b hover:bg-gray-50">
+                <td className="px-6 py-4">{alumno.nombres} {alumno.apellidos}</td>
+                <td className="px-6 py-4">{alumno.dni}</td>
+                <td className="px-6 py-4">{alumno.email}</td>
+                <td className="px-6 py-4">
+                    <button onClick={() => startEdit(alumno)} className="text-blue-600 hover:text-blue-800 font-medium mr-4">
+                        Editar
+                    </button>
+                    <button onClick={() => deleteAlumno(alumno.id_alumno)} className="text-red-600 hover:text-red-800 font-medium">
+                        Eliminar
+                    </button>
+                </td>
+            </tr>
+        );
+
+        const renderEditForm = () => (
+            <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-40">
+                <div className="bg-card-bg p-6 rounded-lg shadow-2xl w-full max-w-md">
+                    <h4 className="text-xl font-bold mb-4">Editar Alumno: {editingAlumno.nombres}</h4>
+                    <form onSubmit={saveEdit} className="space-y-3">
+                        <input type="text" name="nombres" value={editingAlumno.nombres} onChange={handleEditChange} placeholder="Nombres" className="w-full p-2 border rounded" required />
+                        <input type="text" name="apellidos" value={editingAlumno.apellidos} onChange={handleEditChange} placeholder="Apellidos" className="w-full p-2 border rounded" required />
+                        <input type="text" name="dni" value={editingAlumno.dni} onChange={handleEditChange} placeholder="DNI" className="w-full p-2 border rounded" required />
+                        <input type="email" name="email" value={editingAlumno.email} onChange={handleEditChange} placeholder="Email" className="w-full p-2 border rounded" required />
+                        <input type="tel" name="telefono" value={editingAlumno.telefono || ''} onChange={handleEditChange} placeholder="Teléfono" className="w-full p-2 border rounded" />
+                        <div className="flex justify-end space-x-3 mt-4">
+                            <button type="button" onClick={cancelEdit} className="px-4 py-2 border rounded text-gray-700 hover:bg-gray-100">
+                                Cancelar
+                            </button>
+                            <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                                Guardar Cambios
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        );
+
+        return (
+            <div id="gestion-alumnos" className="container mx-auto p-4 pt-8">
+                <header className="header-bg text-white text-center py-6 shadow-md mb-8 rounded-lg">
+                    <h2 className="text-3xl font-light">Gestión de Alumnos (CRUD)</h2>
+                    <p className="text-sm mt-1">Administración de datos y eliminación de registros.</p>
+                </header>
+                
+                {alumnos.length === 0 ? (
+                    <p className="text-center text-gray-500">No hay alumnos registrados.</p>
+                ) : (
+                    <div className="overflow-x-auto shadow-lg rounded-lg">
+                        <table className="min-w-full bg-card-bg">
+                            <thead className="bg-gray-200 border-b">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Nombre Completo</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">DNI</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Email</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {alumnos.map(renderAlumnoRow)}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+                {editingAlumno && renderEditForm()}
+                <Notification message={message} type={messageType} onClose={() => setMessage(null)} />
+            </div>
+        );
+    };
+    
+    // --- Componente 3: Reporte PDF ---
+
+    const ReportePDF = () => {
+        const [reporteData, setReporteData] = useState(null);
+        const [isLoading, setIsLoading] = useState(false);
+        const [message, setMessage] = useState(null);
+        const [messageType, setMessageType] = useState('info');
+        
+        // Define window.jsPDF y html2canvas desde el CDN
+        const { jsPDF } = window.jspdf;
+
+        const fetchReporteData = useCallback(async () => {
+            setIsLoading(true);
+            try {
+                const response = await fetch(`${API_BASE_URL}/reporte/detalle`);
+                if (!response.ok) throw new Error('Error al cargar datos del reporte');
+                const data = await response.json();
+                setReporteData(data);
+            } catch (error) {
+                console.error('Error fetching report data:', error);
+                setMessage('Error al cargar los datos del reporte.');
+                setMessageType('error');
+            } finally {
+                setIsLoading(false);
+            }
+        }, []);
+        
+        useEffect(() => {
+            fetchReporteData();
+        }, [fetchReporteData]);
+
+        const generatePDF = () => {
+            if (!reporteData || !jsPDF || !window.html2canvas) {
+                setMessage('Error: Librerías PDF no cargadas o datos no disponibles.');
+                setMessageType('error');
+                return;
+            }
+
+            const doc = new jsPDF();
+            const margin = 10;
+            let y = margin;
+            const lineHeight = 7;
+            const pageWidth = doc.internal.pageSize.getWidth();
+
+            doc.setFontSize(18);
+            doc.text("Reporte de Clases y Alumnos Inscritos", pageWidth / 2, y, { align: 'center' });
+            y += lineHeight * 2;
+
+            doc.setFontSize(10);
+            
+            reporteData.forEach(clase => {
+                const isFull = clase.inscriptos >= 6; // Usamos 6 como capacidad máxima hardcodeada
+                
+                // Salto de página si es necesario
+                if (y > doc.internal.pageSize.getHeight() - (margin + lineHeight * (clase.alumnos_inscritos.length + 3))) {
+                    doc.addPage();
+                    y = margin;
+                }
+
+                doc.setFontSize(14);
+                doc.setTextColor(isFull ? 255 : 0, isFull ? 0 : 0, isFull ? 0 : 0); // Rojo si está completa
+                doc.text(`${clase.clase} (${clase.dia} ${clase.hora.slice(0, 5)})`, margin, y);
+                y += lineHeight;
+
+                doc.setFontSize(10);
+                doc.setTextColor(0, 0, 0); // Negro
+                doc.text(`Cupos: ${clase.inscriptos}/6`, margin, y);
+                y += lineHeight;
+                
+                if (clase.alumnos_inscritos && clase.alumnos_inscritos.length > 0) {
+                    doc.setFontSize(10);
+                    doc.text("Alumnos Inscritos:", margin + 5, y);
+                    y += lineHeight;
+                    
+                    clase.alumnos_inscritos.forEach(alumno => {
+                        doc.text(`- ${alumno.nombres} ${alumno.apellidos} (DNI: ${alumno.dni})`, margin + 10, y);
+                        y += lineHeight;
+                        
+                        // Salto de página intermedio si es necesario
+                        if (y > doc.internal.pageSize.getHeight() - margin) {
+                            doc.addPage();
+                            y = margin;
+                        }
+                    });
+                } else {
+                    doc.setFontSize(10);
+                    doc.text('No hay alumnos inscritos en esta clase.', margin + 5, y);
+                    y += lineHeight;
+                }
+                y += lineHeight * 0.5; // Espacio entre clases
+            });
+
+            doc.save('Reporte_Clases_Yoga_Pilates.pdf');
+            setMessage('Reporte PDF generado exitosamente.');
+            setMessageType('success');
+        };
+
+        const renderReporte = () => (
+            <div className="space-y-4">
+                {reporteData && reporteData.map(clase => (
+                    <div key={clase.id_clase} className={`p-4 rounded-lg shadow-md ${clase.inscriptos >= 6 ? 'bg-red-100 border-l-4 border-red-500' : 'bg-card-bg border-l-4 border-blue-500'}`}>
+                        <h5 className="font-bold text-lg text-gray-800">{clase.clase} - {clase.dia} {clase.hora.slice(0, 5)}</h5>
+                        <p className="text-sm text-gray-600">Cupos: {clase.inscriptos}/6 {clase.inscriptos >= 6 && <span className="text-red-600 font-bold ml-2"> (COMPLETA)</span>}</p>
+                        
+                        <div className="mt-2 ml-4">
+                            <h6 className="font-semibold text-gray-700">Alumnos Inscritos ({clase.alumnos_inscritos.length}):</h6>
+                            <ul className="text-sm text-gray-600 list-disc list-inside">
+                                {clase.alumnos_inscritos.length > 0 ? (
+                                    clase.alumnos_inscritos.map(alumno => (
+                                        <li key={alumno.id_alumno}>{alumno.nombres} {alumno.apellidos} (DNI: {alumno.dni})</li>
+                                    ))
+                                ) : (
+                                    <li>Ningún alumno inscrito.</li>
+                                )}
+                            </ul>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+
+        return (
+            <div id="reporte-pdf" className="container mx-auto p-4 pt-8">
+                <header className="header-bg text-white text-center py-6 shadow-md mb-8 rounded-lg">
+                    <h2 className="text-3xl font-light">Reporte Detallado de Clases</h2>
+                    <p className="text-sm mt-1">Vista detallada de las clases y sus alumnos.</p>
+                </header>
+
+                <div className="flex justify-center mb-6">
+                    <button
+                        onClick={generatePDF}
+                        disabled={isLoading || !reporteData}
+                        className={`px-8 py-3 font-semibold rounded-full shadow-lg transition duration-200 
+                            ${isLoading || !reporteData 
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                                : 'bg-red-600 text-white hover:bg-red-700'
+                            }`}
+                    >
+                        {isLoading ? 'Cargando Datos...' : 'Generar y Descargar Reporte PDF'}
+                    </button>
+                </div>
+                
+                {isLoading ? (
+                    <div className="text-center text-gray-500">Cargando datos del reporte...</div>
+                ) : (
+                    renderReporte()
+                )}
+
+                <Notification message={message} type={messageType} onClose={() => setMessage(null)} />
+            </div>
+        );
+    };
+
+    // --- Componente Principal: App ---
+
+    const App = () => {
+        const [currentScreen, setCurrentScreen] = useState('horarios');
+        
+        const NavItem = ({ screen, children }) => (
+            <button
+                onClick={() => setCurrentScreen(screen)}
+                className={`px-4 py-2 rounded-full font-semibold transition duration-200 ${
+                    currentScreen === screen
+                        ? 'bg-white text-accent-color shadow-md'
+                        : 'text-gray-200 hover:text-white hover:bg-gray-600'
+                }`}
+            >
+                {children}
+            </button>
+        );
+
+        const renderScreen = () => {
+            switch (currentScreen) {
+                case 'horarios':
+                    return <HorariosReservas goToScreen={setCurrentScreen} />;
+                case 'gestion':
+                    return <GestionAlumnos />;
+                case 'reporte':
+                    return <ReportePDF />;
+                default:
+                    return <HorariosReservas goToScreen={setCurrentScreen} />;
+            }
+        };
+
+        return (
+            <div className="min-h-screen flex flex-col">
+                {/* Barra de Navegación */}
+                <nav className="header-bg shadow-lg">
+                    <div className="container mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
+                        <h1 className="text-2xl font-bold text-white">Yoga/Pilates Studio</h1>
+                        <div className="flex space-x-3">
+                            <NavItem screen="horarios">Horarios y Reserva</NavItem>
+                            <NavItem screen="gestion">Gestión de Alumnos (CRUD)</NavItem>
+                            <NavItem screen="reporte">Reporte (PDF)</NavItem>
+                        </div>
+                    </div>
+                </nav>
+                
+                {/* Contenido de la Pantalla */}
+                <main className="flex-grow">
+                    {renderScreen()}
+                </main>
+
+                {/* Footer simple */}
+                <footer className="header-bg text-white text-center text-sm py-3 mt-8">
+                    &copy; {new Date().getFullYear()} Yoga/Pilates Studio. Implementación Arquitectura Web.
+                </footer>
+            </div>
+        );
+    };
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+
+</script>
+</body>
+</html>
