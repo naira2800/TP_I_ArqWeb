@@ -10,4 +10,4 @@ server.test.js: Pruebas a los endpoints de la API utilizando la librería jest (
 
 package.json: Definición del proyecto, dependencias y scripts de ejecución (Punto 4.1).
 
-App.jsx: El frontend en React, que implementará la cuadrícula de horarios, el formulario de reserva, la pantalla de Reporte (Punto 1.2), y el CRUD para la gestión de alumnos (Punto 1.1).
+index.html (App.jsx): El frontend en React en un .html, que implementará la cuadrícula de horarios, el formulario de reserva, la pantalla de Reporte (Punto 1.2), y el CRUD para la gestión de alumnos (Punto 1.1).
