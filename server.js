@@ -459,13 +459,18 @@ module.exports.openDatabase = async () => {
 }
 
 // **Exportaciones para Testing**
-// CAMBIO CLAVE: Exportar un objeto con TODAS las propiedades
-module.exports = {
-    app: app,
-    CAPACIDAD_MAXIMA: CAPACIDAD_MAXIMA,
-    initializeDatabase: initializeDatabase,
-    openDatabase: openDatabase // Exportamos la nueva función
-};
+module.exports = app;
+module.exports.CAPACIDAD_MAXIMA = CAPACIDAD_MAXIMA;
+module.exports.initializeDatabase = initializeDatabase;
+// ¡NUEVO! Exportar la función open para que el test pueda abrir la DB
+module.exports.openDatabase = async () => {
+    db = await open({
+      filename: DB_PATH,
+      driver: sqlite3.Database
+    });
+    return db; // Retorna el objeto db abierto
+}
+
 
 
 
