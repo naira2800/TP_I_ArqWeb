@@ -458,5 +458,15 @@ module.exports.openDatabase = async () => {
     return db; // Retorna el objeto db abierto
 }
 
+// **Exportaciones para Testing**
+// CAMBIO CLAVE: Exportar un objeto con TODAS las propiedades
+module.exports = {
+    app: app,
+    CAPACIDAD_MAXIMA: CAPACIDAD_MAXIMA,
+    initializeDatabase: initializeDatabase,
+    openDatabase: openDatabase // Exportamos la nueva función
+};
+
+
 
 
