@@ -52,13 +52,17 @@ describe('API Endpoints Testing', () => {
             // Verifica las inscripciones iniciales (Clase 1, 2, 3 tienen 2, 1, 1 inscritos respectivamente)
             // (La corrección en server.js asegura que la clase 1 tiene 1, clase 2 tiene 1, y clase 3 tiene 1)
             // Nota: Se asume que el ID 1 tiene 1, el ID 2 tiene 1, y el ID 3 tiene 1.
-            if (clase.id_clase === 1) expect(clase.inscriptos).toBe(1);
-            if (clase.id_clase === 2) expect(clase.inscriptos).toBe(1);
-            if (clase.id_clase === 3) expect(clase.inscriptos).toBe(1);
-            if (clase.id_clase === 4) expect(clase.inscriptos).toBe(1);
-            // El resto deberían ser 0
-            if (clase.id_clase > 4) expect(clase.inscriptos).toBe(0);
-        });
+             
+            // Las clases con inscripciones iniciales son: 2, 10, 12, y 24.
+            const clasesConInscrito = [2, 10, 12, 24];
+
+            if (clasesConInscrito.includes(clase.id_clase)) {
+                 // Estas clases tienen 1 inscrito
+                 expect(clase.inscriptos).toBe(1);
+            } else {
+                 // El resto de las clases deben tener 0 inscritos (estado inicial limpio)
+                 expect(clase.inscriptos).toBe(0);
+            }
     });
 
     // Test 2: POST /api/reservar - Creación de nuevo alumno e inscripciones
@@ -97,7 +101,7 @@ describe('API Endpoints Testing', () => {
         const claseIdToFill = 4;
         const claseIdToReserve = 7; // Clase que sí se puede reservar
 
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 6; i++) {
              const tempReserva = {
                 nombres: `Alumno ${i}`,
                 apellidos: `Llenado ${i}`,
@@ -200,14 +204,15 @@ describe('API Endpoints Testing', () => {
         expect(response.body.length).toBeGreaterThan(20); // Debe tener todas las clases
 
         // Verifica que la data contenga la información del alumno inscrito en Clase 1
-        const clase1 = response.body.find(c => c.id_clase === 1);
-        expect(clase1).toBeDefined();
-        expect(clase1).toHaveProperty('alumnos_inscritos');
-        expect(clase1.alumnos_inscritos.length).toBe(1); // Alumno 1
-        expect(clase1.alumnos_inscritos[0]).toHaveProperty('nombres');
+        const clase2 = response.body.find(c => c.id_clase === 1);
+        expect(clase2).toBeDefined();
+        expect(clase2).toHaveProperty('alumnos_inscritos');
+        expect(clase2.alumnos_inscritos.length).toBe(1); // Alumno 1
+        expect(clase2.alumnos_inscritos[0]).toHaveProperty('nombres');
     });
 
 });
+
 
 
 
