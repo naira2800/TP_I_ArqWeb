@@ -211,3 +211,4 @@ describe('API Endpoints Testing', () => {
         expect(clase2.alumnos_inscritos[0]).toHaveProperty('nombres');
 });
 });
+    });
