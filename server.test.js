@@ -204,7 +204,7 @@ describe('API Endpoints Testing', () => {
         expect(response.body.length).toBeGreaterThan(20); // Debe tener todas las clases
 
         // Verifica que la data contenga la información del alumno inscrito en Clase 1
-        const clase2 = response.body.find(c => c.id_clase === 1);
+        const clase2 = response.body.find(c => c.id_clase === 2);
         expect(clase2).toBeDefined();
         expect(clase2).toHaveProperty('alumnos_inscritos');
         expect(clase2.alumnos_inscritos.length).toBe(1); // Alumno 1
@@ -212,6 +212,7 @@ describe('API Endpoints Testing', () => {
     });
 
 });
+
 
 
 
