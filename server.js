@@ -287,7 +287,6 @@ const { nombres, apellidos, dni, email, telefono, clasesSeleccionadas } = req.bo
   }
 });
 
-
 // 3. GET /api/alumnos - Reporte de Alumnos (CRUD LIST)
 app.get('/api/alumnos', async (req, res) => {
   try {
@@ -471,6 +470,7 @@ module.exports = {
     initializeDatabase: initializeDatabase,
     openDatabase: openDatabase 
 };
+
 
 
 
