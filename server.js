@@ -18,6 +18,7 @@ let server;
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
 // --- ESQUEMA SQL INICIAL (Asegurando data completa y correcta) ---
 const INITIAL_SQL_SCHEMA = `
@@ -465,3 +466,4 @@ module.exports = {
     initializeDatabase: initializeDatabase,
     openDatabase: openDatabase 
 };
+
