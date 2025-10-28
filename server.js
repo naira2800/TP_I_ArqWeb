@@ -178,8 +178,11 @@ app.get('/api/clases', async (req, res) => {
 app.post('/api/reservar', async (req, res) => {
   const { nombres, apellidos, dni, email, telefono } = req.body;
 
-  if (!nombres || !apellidos || !dni || !email ) {
-    return res.status(400).json({ error: 'Faltan campos obligatorios para la reserva.' });
+  // if (!nombres || !apellidos || !dni || !email ) {
+  //   return res.status(400).json({ error: 'Faltan campos obligatorios para la reserva.' });
+     const { nombres, apellidos, dni, email, telefono, clasesSeleccionadas } = req.body;
+
+  if (!nombres || !apellidos || !dni || !email || !clasesSeleccionadas || clasesSeleccionadas.length === 0) {
   }
 
   try {
@@ -466,5 +469,6 @@ module.exports = {
     initializeDatabase: initializeDatabase,
     openDatabase: openDatabase 
 };
+
 
 
