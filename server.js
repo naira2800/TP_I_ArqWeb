@@ -176,7 +176,7 @@ app.get('/api/clases', async (req, res) => {
 
 // 2. POST /api/reservar - Reservar Clases
 app.post('/api/reservar', async (req, res) => {
-  const { nombres, apellidos, dni, email, telefono } = req.body;
+  //const { nombres, apellidos, dni, email, telefono } = req.body;
 
 const { nombres, apellidos, dni, email, telefono, clasesSeleccionadas } = req.body;
 
@@ -471,6 +471,7 @@ module.exports = {
     initializeDatabase: initializeDatabase,
     openDatabase: openDatabase 
 };
+
 
 
 
