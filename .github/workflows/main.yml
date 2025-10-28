@@ -51,5 +51,5 @@ jobs:
         run: npm run build --if-present
         
       # Aquí es donde iría el paso de despliegue si tuvieras un servicio externo
-      - name: Verification Complete
-        run: echo "Build successful. Ready for deployment."
+      - name: Verificación Completa
+        run: echo "Build exitoso. Listo para deploy."
