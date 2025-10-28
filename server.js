@@ -176,17 +176,14 @@ app.get('/api/clases', async (req, res) => {
 
 // 2. POST /api/reservar - Reservar Clases
 app.post('/api/reservar', async (req, res) => {
-  //const { nombres, apellidos, dni, email, telefono } = req.body;
 
 const { nombres, apellidos, dni, email, telefono, clasesSeleccionadas } = req.body;
 
   if (!nombres || !apellidos || !dni || !email || !clasesSeleccionadas || clasesSeleccionadas.length === 0) {
+     return res.status(400).json({ error: 'Faltan campos obligatorios para la reserva.' });
+  }
+
   
-
-  //const { nombres, apellidos, dni, email, telefono, clasesSeleccionadas } = req.body;
-
- // if (!nombres || !apellidos || !dni || !email || !clasesSeleccionadas || clasesSeleccionadas.length === 0) {
-
   try {
     // 1. Obtener o Crear el Alumno
     let alumno = await db.get('SELECT id_alumno FROM alumnos WHERE dni = ? OR email = ?', [dni, email]);
@@ -470,6 +467,7 @@ module.exports = {
     initializeDatabase: initializeDatabase,
     openDatabase: openDatabase 
 };
+
 
 
 
