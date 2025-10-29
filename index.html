@@ -693,18 +693,25 @@
         return (
             <div className="min-h-screen flex flex-col">
                 {/* Barra de Navegación */}
-                <nav className="header-bg shadow-lg">
-                    <div className="container mx-auto px-4 py-4 flex items-center space-x-3">
-                        
-                        <img src="/flor-de-loto.png" alt="Logo Yoga" className="w-20 h-20 rounded-full"/>
-                        <h1 className="text-2xl font-bold text-white">Yoga/Pilates Studio</h1>
-                        <div className="flex space-x-3">
-                            <NavItem screen="horarios">Horarios y Reserva</NavItem>
-                            <NavItem screen="gestion">Gestión de Alumnos (CRUD)</NavItem>
-                            <NavItem screen="reporte">Reporte (PDF)</NavItem>
-                        </div>
+               <nav className="header-bg shadow-lg">
+                  <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+                    
+                    {/* 🔹 Logo + Título juntos a la izquierda */}
+                    <div className="flex items-center space-x-2">
+                      <img src="/flor-de-loto.png" alt="Logo Yoga" className="w-14 h-14 rounded-full" />
+                      <h1 className="text-2xl font-bold text-white">Yoga/Pilates Studio</h1>
                     </div>
-                </nav>
+
+                {/* 🔹 Menú de navegación a la derecha */}
+                <div className="flex space-x-4">
+                  <NavItem screen="horarios">Horarios y Reserva</NavItem>
+                  <NavItem screen="gestion">Gestión de Alumnos (CRUD)</NavItem>
+                  <NavItem screen="reporte">Reporte (PDF)</NavItem>
+                </div>
+
+          </div>
+        </nav>
+
                 
                 {/* Contenido de la Pantalla */}
                 <main className="flex-grow">
@@ -724,6 +731,7 @@
 </script>
 </body>
 </html>
+
 
 
 
