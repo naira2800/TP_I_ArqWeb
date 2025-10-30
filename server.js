@@ -7,7 +7,8 @@ const { v4: uuidv4 } = require('uuid');
 
 // --- Configuración Inicial ---
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+
 const DB_PATH = path.join(__dirname, 'yoga.db');
 const CAPACIDAD_MAXIMA = 6;
 
@@ -467,6 +468,7 @@ module.exports = {
     initializeDatabase: initializeDatabase,
     openDatabase: openDatabase 
 };
+
 
 
 
