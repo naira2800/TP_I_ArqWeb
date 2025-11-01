@@ -21,7 +21,7 @@
         .main-bg { background-color: #f7fafc; } /* Blanco casi roto */
         .card-bg { background-color: #ffffff; } /* Blanco */
         .accent-color { color: #8a2be2; } /* Violeta (sutil) */
-        .bg-accent-color { color: #c386fc; } /* Lila */
+        .bg-color { color: #c386fc; } /* Lila */
     </style>
 </head>
 <body class="main-bg font-sans antialiased min-h-screen">
@@ -322,7 +322,7 @@
                                     disabled={clasesSeleccionadas.length === 0}
                                     className={`px-8 py-3 font-semibold rounded-full shadow-lg transition duration-200 
                                         ${clasesSeleccionadas.length > 0
-                                            ? 'bg-accent-color text-white hover:bg-purple-700'
+                                            ? 'bg-rose-800 text-white hover:bg-purple-700'
                                             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                         }`}
                                 >
@@ -732,6 +732,7 @@
 </script>
 </body>
 </html>
+
 
 
 
