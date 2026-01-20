@@ -50,10 +50,7 @@ jobs:
       - name: Run Build Script
         run: npm run build --if-present
         
-      # Aquí es donde iría el paso de despliegue si tuvieras un servicio externo
-      # - name: Verificación Completa
-      #   run: echo "Build exitoso. Listo para deploy."
-        
+       
       #Deploy
       - name: Deploy
         if: github.ref == 'refs/heads/main'
