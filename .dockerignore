@@ -1,0 +1,28 @@
+# Dependencias
+node_modules
+npm-debug.log
+
+# Base de datos local (¡Muy importante para evitar conflictos de permisos!)
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Git
+.git
+.gitignore
+
+# Archivos de configuración de entorno
+.env
+.env.local
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Otros
+.DS_Store
+dist
+build
+README.md
