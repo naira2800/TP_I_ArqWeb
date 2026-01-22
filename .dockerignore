@@ -1,11 +1,28 @@
-# Ignorar node_modules de Windows
+# Dependencias
 node_modules
-# Ignorar archivos de log
 npm-debug.log
-yarn-debug.log
-yarn-error.log
 
-# Ignorar carpetas de desarrollo
+# Base de datos local (¡Muy importante para evitar conflictos de permisos!)
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Git
+.git
+.gitignore
+
+# Archivos de configuración de entorno
 .env
-.vscode
+.env.local
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Otros
 .DS_Store
+dist
+build
+README.md
