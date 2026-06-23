@@ -22,7 +22,7 @@ USER node
 
 EXPOSE 3000
 
-# Comando para verificar permisos al arrancar (solo para debug)
+# Comando para verificar permisos al arrancar (solo para debug)-
 # CMD ["sh", "-c", "ls -la /app && node server.js"]
 
 CMD ["node", "server.js"]
